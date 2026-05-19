@@ -177,6 +177,45 @@ export default function PrivacyPolicy() {
           and we will delete the account immediately.
         </p>
 
+        <h2 style={styles.h2}>Subscriptions, Cancellation &amp; Refunds</h2>
+        <p style={styles.p}>
+          CyberMail offers three auto-renewing monthly subscriptions —
+          Verified ($4.99/mo), Pro ($9.99/mo), Business ($24.99/mo) — sold
+          exclusively through the Apple App Store using StoreKit. We do not
+          accept payments outside the App Store.
+        </p>
+        <p style={styles.p}>
+          <strong>Auto-renewal:</strong> subscriptions automatically renew at
+          the same price unless cancelled at least 24 hours before the end of
+          the current period. Your iTunes account is charged within 24 hours
+          before each renewal.
+        </p>
+        <p style={styles.p}>
+          <strong>Cancellation:</strong> open the iOS Settings app → tap your
+          Apple ID → <strong>Subscriptions</strong> → <strong>CyberMail</strong>{" "}
+          → <strong>Cancel Subscription</strong>. Or in the CyberMail app:
+          Settings → Subscription → Manage in App Store. Cancellation takes
+          effect at the end of the current billing period — your subscription
+          remains active until then.
+        </p>
+        <p style={styles.p}>
+          <strong>Refunds:</strong> <strong>all sales are final.</strong>{" "}
+          CyberMail does not provide refunds for any portion of a subscription
+          period, including unused time after cancellation. All payments are
+          processed by Apple, so refund requests must go to Apple at{" "}
+          <a href="https://reportaproblem.apple.com/" style={styles.a}>
+            reportaproblem.apple.com
+          </a>
+          . Apple decides refund eligibility at their sole discretion.
+          CyberMail cannot override or expedite Apple&apos;s refund decisions.
+        </p>
+        <p style={styles.p}>
+          <strong>Account deletion vs subscription cancellation:</strong>{" "}
+          deleting your CyberMail account (Settings → Delete Account) does NOT
+          cancel your App Store subscription. Cancel that separately or you
+          will continue to be charged.
+        </p>
+
         <h2 style={styles.h2}>Changes</h2>
         <p style={styles.p}>
           If we materially change this policy, we&apos;ll notify you
