@@ -78,9 +78,9 @@ export default function Support() {
         <div style={styles.faq}>
           <h3 style={styles.faqQ}>Will you ever sell ads?</h3>
           <p style={styles.faqA}>
-            No. We&apos;re funded by the subscription tiers ($4.99 / $9.99 / $24.99).
-            If we ever change that, we&apos;ll tell you 60 days in advance and give
-            you a one-click data export and account deletion.
+            No. We don&apos;t sell ads and we never will. If our funding model
+            ever changes, we&apos;ll tell you 60 days in advance and give you a
+            one-click data export and account deletion.
           </p>
         </div>
 
@@ -116,47 +116,12 @@ export default function Support() {
           </p>
         </div>
 
-        <h2 style={styles.h2}>Subscriptions, cancellation, refunds</h2>
+        <h2 style={styles.h2}>Pricing &amp; account</h2>
         <div style={styles.faq}>
-          <h3 style={styles.faqQ}>How do I cancel my subscription?</h3>
+          <h3 style={styles.faqQ}>Is CyberMail free?</h3>
           <p style={styles.faqA}>
-            On iOS: open the <strong>Settings app</strong> → tap your Apple
-            ID at the top → <strong>Subscriptions</strong> → tap
-            <strong> CyberMail</strong> → <strong>Cancel Subscription</strong>.
-            Or in the CyberMail app: <strong>Settings → Subscription →
-            Manage in App Store</strong>. Or visit{" "}
-            <a
-              href="https://apps.apple.com/account/subscriptions"
-              style={styles.a}
-            >
-              apps.apple.com/account/subscriptions
-            </a>
-            . Cancellation takes effect at the end of your current billing
-            period — your subscription remains active until then.
-          </p>
-        </div>
-
-        <div style={styles.faq}>
-          <h3 style={styles.faqQ}>What&apos;s your refund policy?</h3>
-          <p style={styles.faqA}>
-            <strong>All sales are final.</strong> CyberMail does not issue
-            refunds for subscriptions, partial periods, or unused time. If you
-            cancel, you keep access until the end of the current period and
-            then stop being charged. We do not pro-rate refunds for
-            cancellations.
-          </p>
-          <p style={styles.faqA}>
-            All payments are processed by Apple (App Store). If you believe
-            you were charged in error or want to request a refund as an
-            exception, contact <strong>Apple</strong> directly via{" "}
-            <a
-              href="https://reportaproblem.apple.com/"
-              style={styles.a}
-            >
-              reportaproblem.apple.com
-            </a>
-            . Apple decides refund eligibility at their sole discretion —
-            CyberMail cannot override or expedite Apple&apos;s refund process.
+            Yes. CyberMail is currently free — no subscriptions and no in-app
+            purchases. Every feature is available to all users at no cost.
           </p>
         </div>
 
@@ -165,13 +130,8 @@ export default function Support() {
           <p style={styles.faqA}>
             In the iOS app: <strong>Settings → Delete Account</strong>. Confirm
             with your password. Your account, all inboxes, messages, contacts,
-            burner addresses, encryption keys, and subscription history are
-            permanently deleted within 30 seconds. This is irreversible.
-          </p>
-          <p style={styles.faqA}>
-            Note: deleting your CyberMail account does <strong>not</strong>{" "}
-            cancel your App Store subscription. Cancel that separately (see
-            above) or you&apos;ll keep being charged.
+            burner addresses, and encryption keys are permanently deleted within
+            30 seconds. This is irreversible.
           </p>
         </div>
 

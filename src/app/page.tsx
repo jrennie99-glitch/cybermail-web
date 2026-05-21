@@ -133,60 +133,24 @@ export default function Landing() {
 
       {/* Pricing */}
       <section id="pricing" style={styles.pricing}>
-        <h2 style={styles.sectionTitle}>Honest pricing. Real value.</h2>
+        <h2 style={styles.sectionTitle}>Free while we&apos;re in early access.</h2>
         <div style={styles.pricingGrid}>
           <PricingCard
             name="Free"
             price="$0"
             features={[
               "@cybrmail.net address",
-              "100 emails/mo sent",
-              "2 GB storage",
               "Local-first AI brain",
-              "1 burner address",
-              "E2E encryption",
-            ]}
-          />
-          <PricingCard
-            name="Verified"
-            price="$4.99"
-            features={[
-              "2,500 emails/mo",
-              "25 GB storage",
-              "5 burner addresses",
-              "Wallet-verified sender badge",
-              "Web3 features unlocked",
-              "Token-gated inbox rules",
-            ]}
-          />
-          <PricingCard
-            name="Pro"
-            price="$9.99"
-            features={[
-              "25,000 emails/mo",
-              "100 GB storage",
-              "50 burner addresses",
-              "ENS / .crypto resolution",
-              "AI synthesis (optional Anthropic key)",
+              "Burner addresses",
+              "Self-destructing messages",
               "Calendar + Wellbeing suite",
+              "E2E encryption",
             ]}
             highlight
           />
-          <PricingCard
-            name="Business"
-            price="$24.99"
-            features={[
-              "100,000 emails/mo",
-              "500 GB storage",
-              "1,000 burner addresses",
-              "Priority support",
-              "Custom domains",
-              "Team features (coming)",
-            ]}
-          />
         </div>
         <p style={styles.pricingFooter}>
-          Cancel anytime. Billed monthly via your App Store account.
+          Every feature is free today — no subscriptions, no in-app purchases.
         </p>
       </section>
 
