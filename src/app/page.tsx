@@ -18,7 +18,7 @@ export default function Landing() {
         </div>
         <div style={styles.navLinks}>
           <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
+          <a href="#pricing">Free</a>
           <a href="#brain">Brain</a>
           <Link href="/app" style={styles.signInBtn}>Sign in</Link>
         </div>
@@ -137,7 +137,7 @@ export default function Landing() {
         <div style={styles.pricingGrid}>
           <PricingCard
             name="Free"
-            price="$0"
+            price="Free"
             features={[
               "@cybrmail.net address",
               "Local-first AI brain",
@@ -211,7 +211,9 @@ function PricingCard({
       <h3 style={styles.pricingName}>{name}</h3>
       <div style={styles.pricingPrice}>
         {price}
-        <span style={styles.pricingPriceSuffix}>/mo</span>
+        {/\d/.test(price) && price !== "$0" && (
+          <span style={styles.pricingPriceSuffix}>/mo</span>
+        )}
       </div>
       <ul style={styles.pricingFeatures}>
         {features.map((f) => (
