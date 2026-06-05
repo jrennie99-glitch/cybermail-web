@@ -38,6 +38,8 @@ const config: Config = {
       backgroundImage: {
         "radial-glow":
           "radial-gradient(ellipse at center top, rgba(0,229,255,0.12), transparent 60%)",
+        "gradient-radial":
+          "radial-gradient(ellipse at center, var(--tw-gradient-stops))",
         "grid-cyber":
           "linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px)",
       },
