@@ -1,5 +1,11 @@
 import Nav from "@/components/Nav";
 import Hero from "@/components/Hero";
+import Features from "@/components/sections/Features";
+import AIBrain from "@/components/sections/AIBrain";
+import WalletAndPostal from "@/components/sections/WalletAndPostal";
+import Pricing from "@/components/sections/Pricing";
+import FinalCTA from "@/components/sections/FinalCTA";
+import Footer from "@/components/Footer";
 
 export default function HomePage() {
   return (
@@ -7,12 +13,13 @@ export default function HomePage() {
       <Nav />
       <main>
         <Hero />
-        {/* Sections below come in next pass — Features, AI Brain, Wallet,
-            Postal, Pricing, FAQ, Footer. Hero approval first. */}
-        <section className="min-h-screen bg-bg flex items-center justify-center text-ink-dim font-mono text-sm">
-          <p>↓ More sections coming — get the hero approved first</p>
-        </section>
+        <Features />
+        <AIBrain />
+        <WalletAndPostal />
+        <Pricing />
+        <FinalCTA />
       </main>
+      <Footer />
     </>
   );
 }
