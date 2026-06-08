@@ -130,3 +130,40 @@ export const getInboxHealth = () =>
 // Send
 export const sendEmail = (opts: { inboxId: number; to: string[]; subject: string; text: string; selfDestruct?: { hours?: number; viewOnce?: boolean } }) =>
   request("/api/send", { method: "POST", body: opts });
+
+// ─── Web3: Sign in with Ethereum (SIWE) ─────────────────────────────────
+export const web3Challenge = (wallet: string) =>
+  request<{ nonce: string; message: string; expiresAt: string }>("/api/web3/challenge", {
+    method: "POST",
+    body: { wallet },
+  });
+
+export const web3Verify = (wallet: string, signature: string, unstoppableDomain?: string) =>
+  request<{ ok: true; token: string; user: { id: number; email: string; name: string | null; plan: string } }>(
+    "/api/web3/verify",
+    { method: "POST", body: { wallet, signature, ...(unstoppableDomain ? { unstoppableDomain } : {}) } }
+  );
+
+// Sign in with Ethereum end-to-end: pops MetaMask, signs SIWE message, logs in.
+export async function signInWithEthereum(): Promise<{ ok: true; token: string; user: { email: string } }> {
+  const eth = (typeof window !== "undefined" ? (window as any).ethereum : null);
+  if (!eth) throw new Error("No Ethereum wallet detected. Install MetaMask or use a Web3 browser.");
+  const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
+  if (!accounts || accounts.length === 0) throw new Error("No wallet account selected.");
+  const wallet = accounts[0];
+  const { message } = await web3Challenge(wallet);
+  const signature: string = await eth.request({
+    method: "personal_sign",
+    params: [message, wallet],
+  });
+  const result = await web3Verify(wallet, signature);
+  setToken(result.token);
+  return { ok: true, token: result.token, user: { email: result.user.email } };
+}
+
+// Verify email with 6-digit code
+export const verifyEmail = (code: string) =>
+  request<{ ok: true; alreadyVerified?: boolean }>("/api/auth/verify-email", { method: "POST", body: { code } });
+
+export const resendVerificationCode = () =>
+  request<{ ok: true }>("/api/auth/verify-email/resend", { method: "POST" });
