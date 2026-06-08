@@ -139,47 +139,104 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#04070D] text-white">
-      {/* Background: subtle grid + radial glow */}
-      <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" aria-hidden />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(800px circle at 50% 0%, rgba(0,229,255,0.18), transparent 50%), radial-gradient(600px circle at 80% 80%, rgba(124,77,255,0.12), transparent 50%)",
-        }}
-        aria-hidden
-      />
+    <div className="grid min-h-screen grid-cols-1 bg-[#04070D] text-white lg:grid-cols-[1.1fr_0.9fr]">
+      {/* ─── LEFT PANE: cinematic brand video + value prop ───────────── */}
+      <aside className="relative hidden overflow-hidden lg:block">
+        <video
+          src="/brand-hero.mp4"
+          poster="/brand-hero-poster.jpg"
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover object-center"
+          aria-hidden
+        >
+          <source src="/brand-hero.webm" type="video/webm" />
+          <source src="/brand-hero.mp4" type="video/mp4" />
+        </video>
+        {/* Cinematic gradient overlays — preserve video center, darken edges for legibility */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#04070D] via-transparent to-[#04070D]/40" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#04070D]/60 via-transparent to-[#04070D]" aria-hidden />
 
-      <main className="relative mx-auto flex min-h-screen max-w-md flex-col px-6 py-12 sm:py-20">
-        {/* Brand mark */}
+        {/* Top: logo */}
         <a
           href="https://cybrmail.net"
-          className="mb-12 flex items-center gap-3 self-start text-white/90 transition hover:text-white"
+          className="absolute left-12 top-12 z-10 flex items-center gap-3 text-white/95 transition hover:text-white"
         >
-          <Logo className="h-8 w-8" />
-          <span className="font-mono text-sm font-semibold tracking-[0.3em]">CYBRMAIL</span>
+          <Logo className="h-9 w-9" />
+          <span className="font-mono text-sm font-bold tracking-[0.3em]">CYBRMAIL</span>
         </a>
 
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            {mode === "signin" ? (
-              <>
-                Welcome <span className="text-gradient-cyber">back.</span>
-              </>
-            ) : (
-              <>
-                Claim your <span className="text-gradient-cyber">inbox.</span>
-              </>
-            )}
-          </h1>
-          <p className="mt-3 text-pretty text-base text-white/60">
-            {mode === "signin"
-              ? "Sign in to your encrypted, AI-native inbox."
-              : "Free forever. Encrypted by default. AI brain that runs on your device."}
+        {/* Center: tagline */}
+        <div className="absolute inset-x-0 bottom-32 z-10 px-12">
+          <p className="mb-4 inline-flex items-center gap-2.5 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-4 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-300 backdrop-blur-md">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400/70" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-300" />
+            </span>
+            Live · v1.0.1
+          </p>
+          <h2 className="font-display text-balance text-[3.5rem] font-bold leading-[0.92] tracking-[-0.02em] xl:text-[4.5rem]">
+            Email,
+            <br />
+            <span className="text-gradient-cyber">reimagined.</span>
+          </h2>
+          <p className="mt-5 max-w-md text-pretty text-base text-white/70">
+            End-to-end encrypted. A private AI brain that runs on-device.
+            Wallet sign-in. Real digital postal mailbox. One inbox.
           </p>
         </div>
+
+        {/* Bottom: trust strip */}
+        <div className="absolute inset-x-0 bottom-10 z-10 grid grid-cols-3 gap-px border-t border-white/5 px-12 pt-6 text-center text-[10px] font-medium uppercase tracking-widest text-white/40">
+          <div>E2E encrypted</div>
+          <div className="border-x border-white/5">Zero trackers</div>
+          <div>Open source</div>
+        </div>
+      </aside>
+
+      {/* ─── RIGHT PANE: sign-in card ─────────────────────────────────── */}
+      <main className="relative flex flex-col px-6 py-10 sm:px-12 lg:px-16">
+        {/* Mobile-only logo */}
+        <a
+          href="https://cybrmail.net"
+          className="mb-10 flex items-center gap-3 self-start text-white/90 transition hover:text-white lg:hidden"
+        >
+          <Logo className="h-8 w-8" />
+          <span className="font-mono text-sm font-bold tracking-[0.3em]">CYBRMAIL</span>
+        </a>
+
+        {/* Background tint */}
+        <div
+          className="pointer-events-none absolute inset-0 hidden lg:block"
+          style={{
+            background:
+              "radial-gradient(900px circle at 80% 20%, rgba(0,229,255,0.06), transparent 60%)",
+          }}
+          aria-hidden
+        />
+
+        <div className="relative mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="font-display text-4xl font-bold tracking-tight sm:text-[2.75rem]">
+              {mode === "signin" ? (
+                <>
+                  Welcome <span className="text-gradient-cyber">back.</span>
+                </>
+              ) : (
+                <>
+                  Claim your <span className="text-gradient-cyber">inbox.</span>
+                </>
+              )}
+            </h1>
+            <p className="mt-3 text-pretty text-[15px] text-white/55">
+              {mode === "signin"
+                ? "Sign in to your private inbox."
+                : "Free forever. Encrypted by default."}
+            </p>
+          </div>
 
         {/* Social + Wallet sign-in */}
         <div className="space-y-2.5">
@@ -323,24 +380,24 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
           )}
         </p>
 
-        {/* Trust strip */}
-        <div className="mt-12 grid grid-cols-3 gap-3 text-center text-[10px] uppercase tracking-widest text-white/40">
-          <Trust label="E2E encrypted" />
-          <Trust label="Zero trackers" />
-          <Trust label="Open source" />
+          <p className="mt-8 text-center text-[11px] text-white/30">
+            By continuing you agree to our{" "}
+            <a
+              href="https://cybrmail.net/terms"
+              className="underline transition hover:text-white/60"
+            >
+              terms
+            </a>{" "}
+            and{" "}
+            <a
+              href="https://cybrmail.net/privacy"
+              className="underline transition hover:text-white/60"
+            >
+              privacy policy
+            </a>
+            .
+          </p>
         </div>
-
-        <p className="mt-8 text-center text-xs text-white/30">
-          By continuing you agree to our{" "}
-          <a href="https://cybrmail.net/terms" className="underline transition hover:text-white/60">
-            terms
-          </a>{" "}
-          and{" "}
-          <a href="https://cybrmail.net/privacy" className="underline transition hover:text-white/60">
-            privacy policy
-          </a>
-          .
-        </p>
       </main>
     </div>
   );
