@@ -19,6 +19,15 @@ export default function AppPage() {
   const [view, setView] = useState<View>("loading");
 
   useEffect(() => {
+    // Pick up token from OAuth callback (#token=...)
+    if (typeof window !== "undefined" && window.location.hash.includes("token=")) {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      const t = params.get("token");
+      if (t) {
+        api.setToken(t);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
     (async () => {
       if (!api.hasToken()) {
         setView("auth");
@@ -78,10 +87,16 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [hasWallet, setHasWallet] = useState(false);
+  const [providers, setProviders] = useState<{ apple: boolean; google: boolean; github: boolean }>({
+    apple: false,
+    google: false,
+    github: false,
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined")
       setHasWallet(!!(window as { ethereum?: unknown }).ethereum);
+    api.getAuthProviders().then(setProviders).catch(() => {});
   }, []);
 
   async function submitEmail() {
@@ -166,32 +181,61 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
           </p>
         </div>
 
-        {/* Wallet sign-in (if available) */}
-        {hasWallet && (
-          <button
-            onClick={submitWallet}
-            disabled={busy}
-            className="mb-4 group flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-5 py-4 text-sm font-medium text-white transition hover:border-cyan-400/40 hover:bg-white/[0.07] disabled:opacity-50"
-          >
-            <svg className="h-5 w-5 transition group-hover:scale-110" viewBox="0 0 32 32" fill="none">
-              <path
-                d="M16 4l-8.66 5v10L16 24l8.66-5V9z"
-                stroke="url(#wgrad)"
-                strokeWidth="1.8"
-                strokeLinejoin="round"
-              />
-              <defs>
-                <linearGradient id="wgrad" x1="0" y1="0" x2="32" y2="32">
-                  <stop offset="0%" stopColor="#00E5FF" />
-                  <stop offset="100%" stopColor="#7C4DFF" />
-                </linearGradient>
-              </defs>
-            </svg>
-            Continue with Ethereum
-          </button>
-        )}
+        {/* Social + Wallet sign-in */}
+        <div className="space-y-2.5">
+          {providers.apple && (
+            <button
+              onClick={() => api.oauthRedirect("apple")}
+              className="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-white/90"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 12.7c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2.1-.9-3.4-.9-1.8 0-3.4 1-4.3 2.6-1.8 3.2-.5 7.9 1.3 10.5.9 1.3 1.9 2.7 3.2 2.6 1.3-.1 1.8-.8 3.4-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.2-2.6.7-1 1.3-2.2 1.7-3.4-3.7-1.4-3.1-5.6-.1-7.8zM14.6 4.7c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.6-.6.8-1.2 2-1 3.2 1.1.1 2.2-.6 2.9-1.5z"/></svg>
+              Continue with Apple
+            </button>
+          )}
+          {providers.google && (
+            <button
+              onClick={() => api.oauthRedirect("google")}
+              className="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-[#1f1f1f] transition hover:bg-white/90"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+              Continue with Google
+            </button>
+          )}
+          {providers.github && (
+            <button
+              onClick={() => api.oauthRedirect("github")}
+              className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#24292f] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[#2c333a]"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.07c-3.2.7-3.87-1.37-3.87-1.37-.52-1.33-1.27-1.68-1.27-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.25 3.34.95.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.89-.39s1.97.13 2.89.39c2.21-1.49 3.18-1.18 3.18-1.18.62 1.58.23 2.75.11 3.04.74.81 1.18 1.84 1.18 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .3.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+              Continue with GitHub
+            </button>
+          )}
+          {hasWallet && (
+            <button
+              onClick={submitWallet}
+              disabled={busy}
+              className="group flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white/[0.04] px-5 py-3.5 text-sm font-medium text-white transition hover:border-cyan-400/40 hover:bg-white/[0.07] disabled:opacity-50"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M16 4l-8.66 5v10L16 24l8.66-5V9z"
+                  stroke="url(#wgrad)"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+                <defs>
+                  <linearGradient id="wgrad" x1="0" y1="0" x2="32" y2="32">
+                    <stop offset="0%" stopColor="#00E5FF" />
+                    <stop offset="100%" stopColor="#7C4DFF" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              Continue with Ethereum
+            </button>
+          )}
+        </div>
 
-        {hasWallet && (
+        {(providers.apple || providers.google || providers.github || hasWallet) && (
           <div className="my-6 flex items-center gap-4 text-xs uppercase tracking-widest text-white/30">
             <div className="h-px flex-1 bg-white/10" />
             or use email

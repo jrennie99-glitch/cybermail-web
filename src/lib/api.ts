@@ -167,3 +167,12 @@ export const verifyEmail = (code: string) =>
 
 export const resendVerificationCode = () =>
   request<{ ok: true }>("/api/auth/verify-email/resend", { method: "POST" });
+
+// OAuth provider availability + redirects
+export const getAuthProviders = () =>
+  request<{ apple: boolean; google: boolean; github: boolean }>("/api/auth/providers");
+
+export const oauthRedirect = (provider: "apple" | "google" | "github") => {
+  const base = (process.env.NEXT_PUBLIC_API_BASE || "https://api.cybrmail.net").replace(/\/$/, "");
+  if (typeof window !== "undefined") window.location.href = `${base}/api/auth/${provider}/start`;
+};
