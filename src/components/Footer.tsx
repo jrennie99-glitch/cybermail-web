@@ -42,7 +42,7 @@ export default function Footer() {
             links={[
               ["About", "/about"],
               ["Press kit", "/press"],
-              ["Contact", "mailto:support@cybrmail.net"],
+              ["Contact", "mailto:jrennie99@gmail.com"],
               ["X / Twitter", "https://x.com/cybrmail"],
             ]}
           />
