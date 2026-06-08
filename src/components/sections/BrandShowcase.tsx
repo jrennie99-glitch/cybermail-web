@@ -92,7 +92,7 @@ export default function BrandShowcase() {
           >
             <Stat number="0" label="trackers" />
             <Stat number="100%" label="encrypted" />
-            <Stat number="$0" label="to start" />
+            <Stat number="Free" label="to start" />
           </motion.div>
         </div>
       </motion.div>
