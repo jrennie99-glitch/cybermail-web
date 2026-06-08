@@ -160,8 +160,8 @@ export default function PrivacyPolicy() {
         <p style={styles.p}>
           To exercise any of these rights, use the app&apos;s built-in
           controls or email{" "}
-          <a href="mailto:privacy@cybrmail.net" style={styles.a}>
-            privacy@cybrmail.net
+          <a href="mailto:jrennie99@gmail.com" style={styles.a}>
+            jrennie99@gmail.com
           </a>
           .
         </p>
@@ -171,8 +171,8 @@ export default function PrivacyPolicy() {
           CyberMail is not directed at children under 13 and we do not
           knowingly collect data from them. If you believe a child has
           signed up, email{" "}
-          <a href="mailto:privacy@cybrmail.net" style={styles.a}>
-            privacy@cybrmail.net
+          <a href="mailto:jrennie99@gmail.com" style={styles.a}>
+            jrennie99@gmail.com
           </a>{" "}
           and we will delete the account immediately.
         </p>
@@ -200,20 +200,20 @@ export default function PrivacyPolicy() {
         <ul style={styles.list}>
           <li>
             General:{" "}
-            <a href="mailto:support@cybrmail.net" style={styles.a}>
-              support@cybrmail.net
+            <a href="mailto:jrennie99@gmail.com" style={styles.a}>
+              jrennie99@gmail.com
             </a>
           </li>
           <li>
             Privacy questions:{" "}
-            <a href="mailto:privacy@cybrmail.net" style={styles.a}>
-              privacy@cybrmail.net
+            <a href="mailto:jrennie99@gmail.com" style={styles.a}>
+              jrennie99@gmail.com
             </a>
           </li>
           <li>
             Security disclosure:{" "}
-            <a href="mailto:security@cybrmail.net" style={styles.a}>
-              security@cybrmail.net
+            <a href="mailto:jrennie99@gmail.com" style={styles.a}>
+              jrennie99@gmail.com
             </a>
           </li>
         </ul>

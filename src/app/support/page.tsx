@@ -34,24 +34,24 @@ export default function Support() {
         </p>
 
         <section style={styles.contactGrid}>
-          <a href="mailto:support@cybrmail.net" style={styles.contactCard}>
+          <a href="mailto:jrennie99@gmail.com" style={styles.contactCard}>
             <div style={styles.cardLabel}>ACCOUNT + BILLING</div>
-            <div style={styles.cardEmail}>support@cybrmail.net</div>
+            <div style={styles.cardEmail}>jrennie99@gmail.com</div>
             <div style={styles.cardSub}>Typically respond within 2-24 hours</div>
           </a>
-          <a href="mailto:feedback@cybrmail.net" style={styles.contactCard}>
+          <a href="mailto:jrennie99@gmail.com" style={styles.contactCard}>
             <div style={styles.cardLabel}>FEATURE REQUESTS</div>
-            <div style={styles.cardEmail}>feedback@cybrmail.net</div>
+            <div style={styles.cardEmail}>jrennie99@gmail.com</div>
             <div style={styles.cardSub}>Send us the use case, not just the ask</div>
           </a>
-          <a href="mailto:security@cybrmail.net" style={styles.contactCard}>
+          <a href="mailto:jrennie99@gmail.com" style={styles.contactCard}>
             <div style={styles.cardLabel}>SECURITY DISCLOSURE</div>
-            <div style={styles.cardEmail}>security@cybrmail.net</div>
+            <div style={styles.cardEmail}>jrennie99@gmail.com</div>
             <div style={styles.cardSub}>24-hour response. Acknowledged publicly.</div>
           </a>
-          <a href="mailto:privacy@cybrmail.net" style={styles.contactCard}>
+          <a href="mailto:jrennie99@gmail.com" style={styles.contactCard}>
             <div style={styles.cardLabel}>PRIVACY + DATA</div>
-            <div style={styles.cardEmail}>privacy@cybrmail.net</div>
+            <div style={styles.cardEmail}>jrennie99@gmail.com</div>
             <div style={styles.cardSub}>Export your data, delete your account</div>
           </a>
         </section>
@@ -141,8 +141,8 @@ export default function Support() {
           <strong>In-app</strong> — Settings → Send Feedback → describe what
           went wrong. Device logs attach automatically with your permission.{" "}
           <strong>Email</strong> —{" "}
-          <a href="mailto:support@cybrmail.net" style={styles.a}>
-            support@cybrmail.net
+          <a href="mailto:jrennie99@gmail.com" style={styles.a}>
+            jrennie99@gmail.com
           </a>{" "}
           with your iOS version, app version (Settings → About), and what you
           were doing when it broke.
