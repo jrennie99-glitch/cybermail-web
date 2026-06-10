@@ -201,6 +201,22 @@ export async function downloadAttachment(id: number, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+// ─── Connection diagnostics ───
+export const API_BASE_URL = API_BASE;
+export async function healthCheck(): Promise<{ reachable: boolean; detail: string }> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(`${API_BASE}/api/health`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return { reachable: false, detail: `Server answered with HTTP ${res.status} — wrong app may be attached to this domain.` };
+    await res.json();
+    return { reachable: true, detail: "Connected" };
+  } catch {
+    return { reachable: false, detail: `No response from ${API_BASE} — the backend container isn't reachable (check it's running, port set to 8080, and the domain is attached with HTTPS).` };
+  }
+}
+
 // ─── Demo mode ───
 export const demoLogin = async () => {
   const r = await request<{ token: string; user: unknown; address: string }>("/api/demo", {

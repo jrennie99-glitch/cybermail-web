@@ -12,6 +12,12 @@
 import { useEffect, useState } from "react";
 import * as api from "@/lib/api";
 import { Logo } from "@/components/Logo";
+import {
+  Inbox, Star, Send, Archive, Trash2, Search, RotateCw, Reply, Forward,
+  PenLine, ArrowLeft, Play, Pause, Square, Mic, Bot, Flame, Brain,
+  Calendar, LogOut, Paperclip, Mail, MailOpen, Undo2, X, Sparkles,
+  Volume2, VolumeX, Drama, Plus, Download
+} from "lucide-react";
 
 type View = "loading" | "auth" | "verify" | "app";
 
@@ -103,6 +109,7 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
   const [handleStatus, setHandleStatus] = useState<null | "checking" | "available" | "unavailable">(null);
   const [handleReason, setHandleReason] = useState("");
   const [hasWallet, setHasWallet] = useState(false);
+  const [health, setHealth] = useState<{ reachable: boolean; detail: string } | null>(null);
   const [providers, setProviders] = useState<{ apple: boolean; google: boolean; github: boolean }>({
     apple: false,
     google: false,
@@ -113,6 +120,9 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
     if (typeof window !== "undefined")
       setHasWallet(!!(window as { ethereum?: unknown }).ethereum);
     api.getAuthProviders().then(setProviders).catch(() => {});
+    api.healthCheck().then(setHealth);
+    const iv = setInterval(() => api.healthCheck().then(setHealth), 15000);
+    return () => clearInterval(iv);
   }, []);
 
   const cleanedHandle = handle.toLowerCase().replace(/[^a-z0-9.]/g, "");
@@ -186,7 +196,8 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
         onSignedIn(true);
       }
     } catch (err: unknown) {
-      setError((err as Error).message ?? "Auth failed.");
+      const msg = (err as Error).message ?? "Auth failed.";
+      setError(/failed to fetch|networkerror|load failed/i.test(msg) ? `Can't reach the mail server at ${api.API_BASE_URL}. The backend is down or misrouted — see the banner above.` : msg);
     } finally {
       setBusy(false);
     }
@@ -285,6 +296,14 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
         />
 
         <div className="relative mx-auto flex w-full max-w-sm flex-1 flex-col justify-center">
+          {health && !health.reachable && (
+            <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3">
+              <div className="text-sm font-semibold text-red-300">⚠ Can&apos;t reach the mail server</div>
+              <p className="mt-1 text-xs leading-relaxed text-red-200/80">{health.detail}</p>
+              <p className="mt-1 text-xs text-red-200/60">Sign-in will fail until this is fixed — retrying automatically…</p>
+            </div>
+          )}
+
           {/* Header */}
           <div className="mb-8">
             <h1 className="font-display text-4xl font-bold tracking-tight sm:text-[2.75rem]">
@@ -741,7 +760,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           <span className="hidden font-mono text-xs font-bold tracking-[0.3em] sm:inline">CYBRMAIL</span>
         </div>
         <div className="relative mx-auto w-full max-w-2xl">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/30">⌕</span>
+          <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
           <input
             type="search"
             placeholder="Search mail"
@@ -766,7 +785,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             title="Sign out"
             className="rounded-full border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:border-white/25 hover:text-white"
           >
-            ⎋
+            <LogOut size={15} />
           </button>
         </div>
       </header>
@@ -778,7 +797,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             onClick={() => setCompose({})}
             className="mb-4 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3.5 text-sm font-semibold text-[#04070D] shadow-[0_8px_24px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.7)]"
           >
-            <span className="text-base leading-none">✎</span> Compose
+            <PenLine size={17} /> Compose
           </button>
           {FOLDERS.map((f) => (
             <RailBtn
@@ -791,12 +810,12 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             />
           ))}
           <div className="my-3 border-t border-white/[0.07]" />
-          <RailBtn icon="✨" label="Assistant" active={view === "assistant"} onClick={() => setView("assistant")} />
-          <RailBtn icon="🧠" label="Brain" active={view === "brain"} onClick={() => setView("brain")} />
-          <RailBtn icon="📅" label="Calendar" active={view === "calendar"} onClick={() => setView("calendar")} />
+          <RailBtn icon={<Sparkles size={17} />} label="Assistant" active={view === "assistant"} onClick={() => setView("assistant")} />
+          <RailBtn icon={<Brain size={17} />} label="Brain" active={view === "brain"} onClick={() => setView("brain")} />
+          <RailBtn icon={<Calendar size={17} />} label="Calendar" active={view === "calendar"} onClick={() => setView("calendar")} />
           <div className="my-3 border-t border-white/[0.07]" />
-          <RailBtn icon="🎭" label="Burners" active={view === "burners"} onClick={() => setView("burners")} />
-          <RailBtn icon="🤖" label="Agents" active={view === "agents"} onClick={() => setView("agents")} />
+          <RailBtn icon={<Drama size={17} />} label="Burners" active={view === "burners"} onClick={() => setView("burners")} />
+          <RailBtn icon={<Bot size={17} />} label="Agents" active={view === "agents"} onClick={() => setView("agents")} />
         </aside>
 
         {/* ── Main surface ───────────────────────────────────────────── */}
@@ -843,7 +862,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
 
       {/* Mobile bottom nav + FAB */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#070B14] sm:hidden">
-        {([["inbox", "📬 Mail"], ["assistant", "✨ Assist"], ["brain", "🧠 Brain"], ["calendar", "📅 Calendar"]] as const).map(([k, label]) => (
+        {([["inbox", "Mail"], ["assistant", "Assist"], ["brain", "Brain"], ["calendar", "Calendar"]] as const).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setView(k)}
@@ -860,7 +879,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 text-xl text-[#04070D] shadow-[0_12px_32px_-8px_rgba(0,229,255,0.7)] sm:hidden"
         title="Compose"
       >
-        ✎
+        <PenLine size={22} />
       </button>
 
       {compose !== null && (
@@ -877,7 +896,7 @@ function RailBtn({
   onClick,
   badge,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;
@@ -892,7 +911,7 @@ function RailBtn({
           : "text-white/60 hover:bg-white/[0.04] hover:text-white"
       }`}
     >
-      <span className="text-base">{icon}</span>
+      <span className="flex w-5 items-center justify-center">{icon}</span>
       <span className="flex-1 text-left">{label}</span>
       {badge ? (
         <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">{badge}</span>
@@ -1194,12 +1213,12 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
         {/* Attachments */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <label className="cursor-pointer rounded-full border border-white/15 px-3.5 py-1.5 text-xs text-white/70 transition hover:border-cyan-400/50 hover:text-white">
-            📎 Attach files
+            <Paperclip size={14} className="mr-1.5 inline" /> Attach files
             <input type="file" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
           </label>
           {files.map((f, i) => (
             <span key={i} className="flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-xs text-white/80">
-              📄 {f.filename}
+              <Paperclip size={12} className="inline" /> {f.filename}
               <button onClick={() => setFiles(files.filter((_, j) => j !== i))} className="text-white/40 hover:text-white">✕</button>
             </span>
           ))}
@@ -1207,7 +1226,7 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
 
         {/* Self-destruct */}
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs text-white/40">🔥 Self-destruct:</span>
+          <span className="mr-1 inline-flex items-center gap-1 text-xs text-white/40"><Flame size={13} /> Self-destruct:</span>
           {DESTRUCT_OPTIONS.map((d) => (
             <button
               key={d.key}
@@ -1274,7 +1293,7 @@ function BrainTab() {
 
   return (
     <div className="mx-auto max-w-3xl p-8">
-      <h1 className="text-3xl font-bold tracking-tight">🧠 Brain</h1>
+      <h1 className="flex items-center gap-2.5 text-3xl font-bold tracking-tight"><Brain size={26} className="text-cyan-300" /> Brain</h1>
 
       <div className="mt-6 flex gap-2">
         <input
@@ -1406,12 +1425,12 @@ function Row({ text, sub }: { text: string; sub?: string }) {
 }
 
 // ─── Inbox tab ────────────────────────────────────────────────────────
-const FOLDERS: { key: api.Folder; label: string; icon: string }[] = [
-  { key: "inbox", label: "Inbox", icon: "📥" },
-  { key: "starred", label: "Starred", icon: "⭐" },
-  { key: "sent", label: "Sent", icon: "📤" },
-  { key: "archive", label: "Archive", icon: "🗄" },
-  { key: "trash", label: "Trash", icon: "🗑" },
+const FOLDERS: { key: api.Folder; label: string; icon: React.ReactNode }[] = [
+  { key: "inbox", label: "Inbox", icon: <Inbox size={17} /> },
+  { key: "starred", label: "Starred", icon: <Star size={17} /> },
+  { key: "sent", label: "Sent", icon: <Send size={17} /> },
+  { key: "archive", label: "Archive", icon: <Archive size={17} /> },
+  { key: "trash", label: "Trash", icon: <Trash2 size={17} /> },
 ];
 
 // ─── Read-aloud (browser speech synthesis — free, on-device) ──────────
@@ -1531,7 +1550,7 @@ function MailView({
                 : "text-white/45 hover:bg-white/[0.06] hover:text-white"
             }`}
           >
-            🔊 Auto-read {autoRead ? "on" : "off"}
+            {autoRead ? <Volume2 size={14} /> : <VolumeX size={14} />} Auto-read {autoRead ? "on" : "off"}
           </button>
           <button
             onClick={load}
@@ -1539,7 +1558,7 @@ function MailView({
             title="Refresh"
             className="rounded-full p-2 text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
           >
-            ↻
+            <RotateCw size={16} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
@@ -1554,7 +1573,7 @@ function MailView({
       {!loading && !error && messages.length === 0 ? (
         folder === "inbox" && !q ? (
           <div className="mx-auto mt-16 max-w-sm px-6 text-center">
-            <div className="text-4xl">📭</div>
+            <Inbox size={40} className="mx-auto text-white/25" />
             <p className="mt-4 text-white/60">Your inbox is live and listening.</p>
             <button
               onClick={() => {
@@ -1592,8 +1611,9 @@ function MailView({
                   title={m.starred ? "Unstar" : "Star"}
                   className={`shrink-0 text-base transition ${m.starred ? "text-amber-300" : "text-white/25 hover:text-white/70"}`}
                 >
-                  {m.starred ? "★" : "☆"}
+                  <Star size={17} fill={m.starred ? "currentColor" : "none"} />
                 </button>
+                <Avatar name={who} seed={m.fromAddress ?? m.from_address ?? ""} />
                 {/* Desktop: sender | subject — snippet | date. Mobile: stacked */}
                 <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-3">
                   <span className={`block truncate text-sm sm:w-44 sm:shrink-0 ${unread ? "font-bold text-white" : "text-white/70"}`}>
@@ -1603,7 +1623,7 @@ function MailView({
                     {m.labels?.filter((l) => l.startsWith("via ")).map((l) => (
                       <span key={l} className="mr-1.5 rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">{l}</span>
                     ))}
-                    {m.hasAttachments && <span className="mr-1 text-white/45">📎</span>}
+                    {m.hasAttachments && <Paperclip size={13} className="mr-1 inline text-white/45" />}
                     <span className={unread ? "font-semibold text-white" : "text-white/75"}>{m.subject || "(no subject)"}</span>
                     {m.summary && <span className="text-white/40"> — {m.summary}</span>}
                   </span>
@@ -1614,21 +1634,21 @@ function MailView({
                 {/* Hover actions (desktop) */}
                 <div className="hidden shrink-0 items-center gap-1 sm:group-hover:flex">
                   {folder !== "archive" && folder !== "trash" && folder !== "sent" && (
-                    <IconBtn title="Archive" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "archive" }); }}>🗄</IconBtn>
+                    <IconBtn title="Archive" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "archive" }); }}><Archive size={16} /></IconBtn>
                   )}
                   {folder !== "trash" ? (
-                    <IconBtn title="Trash" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "trash" }); }}>🗑</IconBtn>
+                    <IconBtn title="Trash" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "trash" }); }}><Trash2 size={16} /></IconBtn>
                   ) : (
                     <>
-                      <IconBtn title="Restore" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "inbox" }); }}>↩</IconBtn>
-                      <IconBtn title="Delete forever" onClick={(e) => { e.stopPropagation(); destroy(m.id); }}>✕</IconBtn>
+                      <IconBtn title="Restore" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "inbox" }); }}><Undo2 size={16} /></IconBtn>
+                      <IconBtn title="Delete forever" onClick={(e) => { e.stopPropagation(); destroy(m.id); }}><X size={16} /></IconBtn>
                     </>
                   )}
                   <IconBtn
                     title={unread ? "Mark read" : "Mark unread"}
                     onClick={(e) => { e.stopPropagation(); act(m.id, { read: unread }); }}
                   >
-                    {unread ? "◉" : "◯"}
+                    {unread ? <MailOpen size={16} /> : <Mail size={16} />}
                   </IconBtn>
                 </div>
               </div>
@@ -1636,6 +1656,21 @@ function MailView({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+const AVATAR_HUES = [188, 262, 330, 32, 152, 210, 0, 280, 100];
+function Avatar({ name, seed }: { name: string; seed: string }) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const hue = AVATAR_HUES[h % AVATAR_HUES.length];
+  return (
+    <div
+      className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white sm:flex"
+      style={{ background: `linear-gradient(135deg, hsl(${hue} 70% 45%), hsl(${(hue + 40) % 360} 70% 35%))` }}
+    >
+      {(name[0] || "?").toUpperCase()}
     </div>
   );
 }
@@ -1746,10 +1781,11 @@ function ReadingPane({
     <div>
       {/* Toolbar */}
       <div className="flex h-12 items-center gap-1 border-b border-white/[0.07] px-3 sm:px-5">
-        <IconBtn title="Back" onClick={onBack}>←</IconBtn>
-        <IconBtn title="Archive" onClick={async () => { await onAct(id, { folder: "archive" }); onBack(); }}>🗄</IconBtn>
-        <IconBtn title="Trash" onClick={async () => { await onAct(id, { folder: "trash" }); onBack(); }}>🗑</IconBtn>
-        <IconBtn title="Mark unread" onClick={async () => { await onAct(id, { read: false }); onBack(); }}>◉</IconBtn>
+        <IconBtn title="Back" onClick={onBack}><ArrowLeft size={18} /></IconBtn>
+        <div className="mx-1 h-5 w-px bg-white/10" />
+        <IconBtn title="Archive" onClick={async () => { await onAct(id, { folder: "archive" }); onBack(); }}><Archive size={17} /></IconBtn>
+        <IconBtn title="Trash" onClick={async () => { await onAct(id, { folder: "trash" }); onBack(); }}><Trash2 size={17} /></IconBtn>
+        <IconBtn title="Mark unread" onClick={async () => { await onAct(id, { read: false }); onBack(); }}><MailOpen size={17} /></IconBtn>
       </div>
 
       {error && (
@@ -1782,7 +1818,7 @@ function ReadingPane({
                   : "border border-white/15 text-white/70 hover:border-cyan-400/50 hover:text-white"
               }`}
             >
-              {speech === "playing" ? "❚❚" : "▶"}
+              {speech === "playing" ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
             </button>
             {speech !== "idle" && (
               <button
@@ -1790,7 +1826,7 @@ function ReadingPane({
                 title="Stop"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 transition hover:border-red-400/50 hover:text-red-300"
               >
-                ■
+                <Square size={13} />
               </button>
             )}
           </div>
@@ -1820,7 +1856,7 @@ function ReadingPane({
                   onClick={() => api.downloadAttachment(a.id, a.filename).catch(() => setError("Download failed."))}
                   className="flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm text-white/85 transition hover:border-cyan-400/50 hover:text-white"
                 >
-                  📄 {a.filename}
+                  <Download size={15} /> {a.filename}
                   <span className="text-xs text-white/40">{(a.size / 1024).toFixed(0)} KB</span>
                 </button>
               ))}
@@ -1831,15 +1867,15 @@ function ReadingPane({
           <div className="mt-8 flex gap-2">
             <button
               onClick={() => onReply(msg)}
-              className="rounded-full border border-white/15 px-6 py-2.5 text-sm font-medium text-white/85 transition hover:border-cyan-400/50 hover:text-white"
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 px-6 py-2.5 text-sm font-medium text-white/85 transition hover:border-cyan-400/50 hover:text-white"
             >
-              ↩ Reply
+              <Reply size={16} /> Reply
             </button>
             <button
               onClick={() => onForward(msg)}
-              className="rounded-full border border-white/15 px-6 py-2.5 text-sm font-medium text-white/85 transition hover:border-cyan-400/50 hover:text-white"
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 px-6 py-2.5 text-sm font-medium text-white/85 transition hover:border-cyan-400/50 hover:text-white"
             >
-              ⤳ Forward
+              <Forward size={16} /> Forward
             </button>
           </div>
         </div>
@@ -1909,7 +1945,7 @@ function AssistantView({ address }: { address: string }) {
 
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col p-4 sm:p-6">
-      <h1 className="text-2xl font-bold tracking-tight">✨ Assistant</h1>
+      <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight"><Sparkles size={24} className="text-cyan-300" /> Assistant</h1>
       <p className="mt-1 text-sm text-white/55">
         Talk to your email. It can search your mail, find things on the web, and send email as {address}.
       </p>
@@ -1968,7 +2004,7 @@ function AssistantView({ address }: { address: string }) {
               : "border border-white/15 text-white/70 hover:border-cyan-400/50 hover:text-white"
           }`}
         >
-          🎙
+          <Mic size={18} />
         </button>
         <textarea
           rows={1}
@@ -2032,7 +2068,7 @@ function BurnersView() {
 
   return (
     <div className="mx-auto max-w-3xl p-6 sm:p-8">
-      <h1 className="text-2xl font-bold tracking-tight">🎭 Burner addresses</h1>
+      <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight"><Drama size={24} className="text-cyan-300" /> Burner addresses</h1>
       <p className="mt-2 text-sm text-white/55">
         Disposable addresses that forward to your inbox. Give them to newsletters,
         sign-ups, anyone you don&apos;t fully trust — kill one and its mail bounces forever.
@@ -2051,7 +2087,7 @@ function BurnersView() {
           disabled={busy}
           className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#04070D] disabled:opacity-50"
         >
-          {busy ? "..." : "+ New burner"}
+          {busy ? "..." : <span className="inline-flex items-center gap-1.5"><Plus size={15} /> New burner</span>}
         </button>
       </div>
 
@@ -2119,7 +2155,7 @@ function AgentsView() {
 
   return (
     <div className="mx-auto max-w-3xl p-6 sm:p-8">
-      <h1 className="text-2xl font-bold tracking-tight">🤖 AI Agents</h1>
+      <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight"><Bot size={24} className="text-cyan-300" /> AI Agents</h1>
       <p className="mt-2 text-sm text-white/55">
         Give any AI agent its own @cybrmail.net address and API key. Agents send,
         read, and reply to mail programmatically — email becomes their interface.
@@ -2146,7 +2182,7 @@ function AgentsView() {
           disabled={busy}
           className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#04070D] disabled:opacity-50"
         >
-          {busy ? "..." : "+ Create agent"}
+          {busy ? "..." : <span className="inline-flex items-center gap-1.5"><Plus size={15} /> Create agent</span>}
         </button>
       </div>
 
@@ -2224,7 +2260,7 @@ function CalendarTab() {
   }, []);
   return (
     <div className="mx-auto max-w-3xl p-8">
-      <h1 className="text-3xl font-bold tracking-tight">📅 Calendar</h1>
+      <h1 className="flex items-center gap-2.5 text-3xl font-bold tracking-tight"><Calendar size={26} className="text-cyan-300" /> Calendar</h1>
       {events.length === 0 && (
         <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/40">
           No upcoming events.
