@@ -82,6 +82,17 @@ export const signup = async (email: string, password: string, name?: string) => 
   return r;
 };
 
+/** Sign up by creating a brand-new @cybrmail.net address as the account. */
+export const signupWithHandle = async (handle: string, password: string, name?: string) => {
+  const r = await request<{ token: string; user: unknown; inbox: Inbox }>("/api/auth/signup", {
+    method: "POST",
+    body: { handle, password, name },
+    noAuth: true,
+  });
+  if (r.token) setToken(r.token);
+  return r;
+};
+
 export const logout = async () => {
   try { await request("/api/auth/logout", { method: "POST" }); } catch {}
   clearToken();
@@ -90,7 +101,7 @@ export const logout = async () => {
 export const getMe = () => request<{ user: { id: number; email: string; name: string | null; plan: string; emailVerified?: boolean } }>("/api/auth/me");
 
 // Inboxes + messages
-export interface Inbox { id: number; address: string; displayName: string | null }
+export interface Inbox { id: number; address: string; displayName: string | null; unread?: number }
 export const listInboxes = () => request<{ inboxes: Inbox[] }>("/api/inboxes");
 
 /**
@@ -112,12 +123,30 @@ export const createInbox = (username: string) =>
     method: "POST",
     body: { username, address: `${username}@cybrmail.net` },
   });
-export const listMessages = (inboxId: number, limit = 50) =>
-  request<{ messages: Array<{ id: number; subject: string; from_address?: string; fromAddress: string; summary?: string | null; createdAt: string; labels: string[] }> }>(
-    `/api/inboxes/${inboxId}/messages?limit=${limit}`
-  );
+export type Folder = "inbox" | "starred" | "sent" | "archive" | "trash";
+
+export interface MessageSummary {
+  id: number; subject: string | null; from_address?: string; fromAddress: string;
+  toAddresses?: string[]; summary?: string | null; createdAt: string; labels: string[];
+  read?: boolean; starred?: boolean; folder?: string;
+}
+
+export const listMessages = (inboxId: number, opts: { folder?: Folder; q?: string; limit?: number } = {}) => {
+  const p = new URLSearchParams();
+  p.set("limit", String(opts.limit ?? 50));
+  if (opts.folder) p.set("folder", opts.folder);
+  if (opts.q) p.set("q", opts.q);
+  return request<{ messages: MessageSummary[] }>(`/api/inboxes/${inboxId}/messages?${p}`);
+};
+
+export const updateMessage = (id: number, patch: { starred?: boolean; read?: boolean; folder?: "inbox" | "sent" | "archive" | "trash" }) =>
+  request<{ ok: true }>(`/api/messages/${id}`, { method: "PATCH", body: patch });
+
+export const deleteMessage = (id: number) =>
+  request<{ ok: true }>(`/api/messages/${id}`, { method: "DELETE" });
+
 export const getMessage = (id: number) =>
-  request<{ message: { id: number; subject: string | null; fromAddress: string; toAddresses: string[]; textBody: string | null; htmlBody: string | null; createdAt: string; sentAt: string | null; labels: string[] } }>(
+  request<{ message: { id: number; subject: string | null; fromAddress: string; toAddresses: string[]; textBody: string | null; htmlBody: string | null; createdAt: string; sentAt: string | null; labels: string[]; starred?: boolean; folder?: string } }>(
     `/api/messages/${id}`
   );
 

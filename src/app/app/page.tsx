@@ -81,11 +81,17 @@ export default function AppPage() {
 // ───────────────────────────────────────────────────────────────────────
 function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  // signup sub-path: create a brand-new @cybrmail.net address, or bring an existing email
+  const [signupPath, setSignupPath] = useState<"create" | "existing">("create");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [handle, setHandle] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [handleStatus, setHandleStatus] = useState<null | "checking" | "available" | "unavailable">(null);
+  const [handleReason, setHandleReason] = useState("");
   const [hasWallet, setHasWallet] = useState(false);
   const [providers, setProviders] = useState<{ apple: boolean; google: boolean; github: boolean }>({
     apple: false,
@@ -99,8 +105,59 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
     api.getAuthProviders().then(setProviders).catch(() => {});
   }, []);
 
+  const cleanedHandle = handle.toLowerCase().replace(/[^a-z0-9.]/g, "");
+
+  // Live availability while creating a new address at signup
+  useEffect(() => {
+    if (mode !== "signup" || signupPath !== "create" || cleanedHandle.length < 3) {
+      setHandleStatus(null);
+      setSuggestions([]);
+      return;
+    }
+    setHandleStatus("checking");
+    let stale = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.checkHandle(cleanedHandle);
+        if (stale) return;
+        if (r.available) {
+          setHandleStatus("available");
+          setSuggestions([]);
+          setHandleReason("");
+        } else {
+          setHandleStatus("unavailable");
+          setHandleReason(r.reason === "taken" ? "Taken" : r.reason || "Unavailable");
+          setSuggestions(r.suggestions ?? []);
+        }
+      } catch {
+        if (!stale) setHandleStatus(null);
+      }
+    }, 350);
+    return () => { stale = true; clearTimeout(t); };
+  }, [mode, signupPath, cleanedHandle]);
+
   async function submitEmail() {
     setError("");
+    if (mode === "signup" && signupPath === "create") {
+      if (cleanedHandle.length < 3) { setError("Pick your address first."); return; }
+      if (!password || password.length < 8) { setError("Password must be at least 8 characters."); return; }
+      setBusy(true);
+      try {
+        await api.signupWithHandle(cleanedHandle, password, name || undefined);
+        onSignedIn(false); // address is the account — nothing to verify
+      } catch (err: unknown) {
+        const e = err as Error & { status?: number; body?: { suggestions?: string[] } };
+        if (e.status === 409 && e.body?.suggestions) {
+          setError(`${cleanedHandle}@cybrmail.net is taken. Try one of these:`);
+          setSuggestions(e.body.suggestions);
+        } else {
+          setError(e.message ?? "Couldn't create your address.");
+        }
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!email || !password) {
       setError("Email and password required.");
       return;
@@ -303,26 +360,97 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
         {/* Email form */}
         <div className="space-y-3">
           {mode === "signup" && (
+            <>
+              {/* Path picker: brand-new address vs existing email */}
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
+                <button
+                  onClick={() => { setSignupPath("create"); setError(""); }}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    signupPath === "create"
+                      ? "bg-gradient-to-r from-cyan-500/20 to-violet-500/15 text-white shadow-[inset_0_0_0_1px_rgba(0,229,255,0.25)]"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                >
+                  Create a new address
+                </button>
+                <button
+                  onClick={() => { setSignupPath("existing"); setError(""); }}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    signupPath === "existing"
+                      ? "bg-gradient-to-r from-cyan-500/20 to-violet-500/15 text-white shadow-[inset_0_0_0_1px_rgba(0,229,255,0.25)]"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                >
+                  Use my email
+                </button>
+              </div>
+              <input
+                type="text"
+                autoComplete="name"
+                placeholder="Your name (optional)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="block w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+              />
+            </>
+          )}
+
+          {mode === "signup" && signupPath === "create" ? (
+            <>
+              <div
+                className={`flex items-stretch overflow-hidden rounded-xl border bg-white/[0.03] transition focus-within:ring-2 ${
+                  handleStatus === "available"
+                    ? "border-emerald-400/50 focus-within:ring-emerald-400/20"
+                    : handleStatus === "unavailable"
+                      ? "border-red-400/40 focus-within:ring-red-400/15"
+                      : "border-white/10 focus-within:border-cyan-400/50 focus-within:ring-cyan-400/20"
+                }`}
+              >
+                <input
+                  type="text"
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  placeholder="yourname"
+                  value={handle}
+                  onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, "").slice(0, 30))}
+                  className="min-w-0 flex-1 bg-transparent px-4 py-3.5 font-mono text-sm text-white placeholder:text-white/25 focus:outline-none"
+                />
+                <span className="flex select-none items-center border-l border-white/10 bg-white/[0.02] px-3 font-mono text-xs text-cyan-300/80">
+                  @cybrmail.net
+                </span>
+              </div>
+              <div className="min-h-[1rem] text-xs" aria-live="polite">
+                {handleStatus === "checking" && <span className="text-white/40">Checking…</span>}
+                {handleStatus === "available" && <span className="text-emerald-300">✓ {cleanedHandle}@cybrmail.net is available</span>}
+                {handleStatus === "unavailable" && <span className="text-red-300">✗ {handleReason}</span>}
+              </div>
+              {suggestions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => { setHandle(s); setError(""); }}
+                      className="rounded-full border border-cyan-400/25 bg-cyan-500/[0.07] px-3 py-1 font-mono text-xs text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-500/15"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
             <input
-              type="text"
-              autoComplete="name"
-              placeholder="Your name (optional)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) =>
+                e.key === "Enter" && document.getElementById("pw-input")?.focus()
+              }
               className="block w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
             />
           )}
-          <input
-            type="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) =>
-              e.key === "Enter" && document.getElementById("pw-input")?.focus()
-            }
-            className="block w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
-          />
           <input
             id="pw-input"
             type="password"
@@ -343,10 +471,22 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
 
         <button
           onClick={submitEmail}
-          disabled={busy || !email || !password}
+          disabled={
+            busy ||
+            !password ||
+            (mode === "signup" && signupPath === "create"
+              ? cleanedHandle.length < 3 || handleStatus === "unavailable" || handleStatus === "checking"
+              : !email)
+          }
           className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-4 text-sm font-semibold text-[#04070D] shadow-[0_8px_32px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_12px_40px_-8px_rgba(0,229,255,0.7)] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? "..." : mode === "signin" ? "Sign in" : "Create account"}
+          {busy
+            ? "..."
+            : mode === "signin"
+              ? "Sign in"
+              : signupPath === "create" && cleanedHandle.length >= 3
+                ? `Create ${cleanedHandle}@cybrmail.net`
+                : "Create account"}
         </button>
 
         {/* Mode toggle */}
@@ -514,12 +654,13 @@ function VerifyEmail({
 //  APP SHELL — Brain / Inbox / Calendar
 // ───────────────────────────────────────────────────────────────────────
 type Tab = "brain" | "inbox" | "calendar";
+type ComposePrefill = { to?: string; subject?: string; text?: string };
 
 function Shell({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("inbox");
   const [inboxes, setInboxes] = useState<api.Inbox[] | null>(null); // null = loading
   const [inboxErr, setInboxErr] = useState("");
-  const [composing, setComposing] = useState(false);
+  const [compose, setCompose] = useState<ComposePrefill | null>(null);
   const [copied, setCopied] = useState(false);
 
   async function loadInboxes() {
@@ -583,14 +724,14 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         </button>
 
         <button
-          onClick={() => setComposing(true)}
+          onClick={() => setCompose({})}
           className="mb-8 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-3 text-sm font-semibold text-[#04070D] shadow-[0_8px_24px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.7)]"
         >
           ✉ Compose
         </button>
 
         <nav className="flex flex-1 flex-col gap-1">
-          <NavBtn icon="📬" label="Inbox" active={tab === "inbox"} onClick={() => setTab("inbox")} />
+          <NavBtn icon="📬" label="Inbox" active={tab === "inbox"} onClick={() => setTab("inbox")} badge={inbox.unread} />
           <NavBtn icon="🧠" label="Brain" active={tab === "brain"} onClick={() => setTab("brain")} />
           <NavBtn icon="📅" label="Calendar" active={tab === "calendar"} onClick={() => setTab("calendar")} />
         </nav>
@@ -607,15 +748,24 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           <button onClick={copyAddress} className="min-w-0 truncate font-mono text-xs text-cyan-300">
             {copied ? "Copied ✓" : inbox.address}
           </button>
-          <button
-            onClick={() => setComposing(true)}
-            className="shrink-0 rounded-lg bg-gradient-to-r from-cyan-400 to-violet-500 px-3 py-2 text-xs font-semibold text-[#04070D]"
-          >
-            ✉ Compose
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => setCompose({})}
+              className="rounded-lg bg-gradient-to-r from-cyan-400 to-violet-500 px-3 py-2 text-xs font-semibold text-[#04070D]"
+            >
+              ✉ Compose
+            </button>
+            <button
+              onClick={onLogout}
+              title="Sign out"
+              className="rounded-lg border border-white/10 px-2.5 py-2 text-xs text-white/50 transition hover:text-white"
+            >
+              ⎋
+            </button>
+          </div>
         </div>
         {tab === "brain" && <BrainTab />}
-        {tab === "inbox" && <InboxTab inbox={inbox} />}
+        {tab === "inbox" && <InboxTab inbox={inbox} onCompose={(p) => setCompose(p ?? {})} />}
         {tab === "calendar" && <CalendarTab />}
         {/* Mobile bottom nav */}
         <div className="fixed inset-x-0 bottom-0 flex border-t border-white/10 bg-[#070B14] sm:hidden">
@@ -630,8 +780,8 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           ))}
         </div>
       </main>
-      {composing && (
-        <ComposeModal inbox={inbox} onClose={() => setComposing(false)} />
+      {compose !== null && (
+        <ComposeModal inbox={inbox} prefill={compose} onClose={() => setCompose(null)} />
       )}
     </div>
   );
@@ -828,10 +978,10 @@ function ClaimAddress({
 // ───────────────────────────────────────────────────────────────────────
 //  COMPOSE — send mail from your address
 // ───────────────────────────────────────────────────────────────────────
-function ComposeModal({ inbox, onClose }: { inbox: api.Inbox; onClose: () => void }) {
-  const [to, setTo] = useState("");
-  const [subject, setSubject] = useState("");
-  const [text, setText] = useState("");
+function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?: ComposePrefill; onClose: () => void }) {
+  const [to, setTo] = useState(prefill?.to ?? "");
+  const [subject, setSubject] = useState(prefill?.subject ?? "");
+  const [text, setText] = useState(prefill?.text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
@@ -920,11 +1070,13 @@ function NavBtn({
   label,
   active,
   onClick,
+  badge,
 }: {
   icon: string;
   label: string;
   active: boolean;
   onClick: () => void;
+  badge?: number;
 }) {
   return (
     <button
@@ -936,7 +1088,10 @@ function NavBtn({
       }`}
     >
       <span className="text-lg">{icon}</span>
-      {label}
+      <span className="flex-1 text-left">{label}</span>
+      {badge ? (
+        <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">{badge}</span>
+      ) : null}
     </button>
   );
 }
@@ -944,19 +1099,26 @@ function NavBtn({
 // ─── Brain tab ────────────────────────────────────────────────────────
 function BrainTab() {
   const [briefing, setBriefing] = useState<Awaited<ReturnType<typeof api.brainBriefing>> | null>(null);
+  const [health, setHealth] = useState<Awaited<ReturnType<typeof api.getInboxHealth>> | null>(null);
+  const [briefErr, setBriefErr] = useState("");
   const [askQ, setAskQ] = useState("");
   const [askAnswer, setAskAnswer] = useState<Awaited<ReturnType<typeof api.brainAsk>> | null>(null);
   const [asking, setAsking] = useState(false);
+  const [askErr, setAskErr] = useState("");
 
   useEffect(() => {
-    api.brainBriefing().then(setBriefing).catch(() => {});
+    api.brainBriefing().then(setBriefing).catch((e: Error) => setBriefErr(e.message ?? "Couldn't load briefing."));
+    api.getInboxHealth().then(setHealth).catch(() => {});
   }, []);
 
   async function ask() {
     if (!askQ.trim()) return;
     setAsking(true);
+    setAskErr("");
     try {
       setAskAnswer(await api.brainAsk(askQ));
+    } catch (e: unknown) {
+      setAskErr((e as Error).message ?? "Search failed.");
     } finally {
       setAsking(false);
     }
@@ -983,6 +1145,9 @@ function BrainTab() {
         </button>
       </div>
 
+      {askErr && (
+        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{askErr}</div>
+      )}
       {askAnswer && (
         <Card className="mt-4">
           <p className="text-sm text-white/85">{askAnswer.answerText}</p>
@@ -1001,6 +1166,9 @@ function BrainTab() {
         </Card>
       )}
 
+      {briefErr && (
+        <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{briefErr}</div>
+      )}
       {briefing && (
         <>
           <div className="mt-6 grid grid-cols-3 gap-3">
@@ -1008,6 +1176,33 @@ function BrainTab() {
             <Stat n={briefing.overduePromises.length} label="overdue" />
             <Stat n={briefing.decisions.length} label="decisions" />
           </div>
+
+          {health && (
+            <Card className="mt-4">
+              <CardTitle>💟 Inbox health</CardTitle>
+              <div className="flex items-center gap-4">
+                <div className="text-3xl font-bold text-cyan-300">{health.score}</div>
+                <p className="text-sm text-white/70">{health.coaching}</p>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-white/10 pt-3 text-center">
+                <div><div className="text-sm font-semibold text-white/90">{health.metrics.inboundCount}</div><div className="text-[10px] uppercase tracking-widest text-white/35">in / 7d</div></div>
+                <div><div className="text-sm font-semibold text-white/90">{health.metrics.outboundCount}</div><div className="text-[10px] uppercase tracking-widest text-white/35">out / 7d</div></div>
+                <div><div className="text-sm font-semibold text-white/90">{Math.round(health.metrics.readRate * 100)}%</div><div className="text-[10px] uppercase tracking-widest text-white/35">read rate</div></div>
+              </div>
+            </Card>
+          )}
+
+          {briefing.newMessageCount === 0 &&
+            briefing.overduePromises.length === 0 &&
+            briefing.upcomingPromises.length === 0 &&
+            briefing.decisions.length === 0 && (
+            <Card className="mt-4">
+              <p className="text-sm text-white/60">
+                Your Brain learns from your mail. As messages arrive, briefings,
+                promises, and decisions appear here automatically.
+              </p>
+            </Card>
+          )}
 
           {briefing.overduePromises.length > 0 && (
             <Card className="mt-4">
@@ -1063,18 +1258,28 @@ function Row({ text, sub }: { text: string; sub?: string }) {
 }
 
 // ─── Inbox tab ────────────────────────────────────────────────────────
-function InboxTab({ inbox }: { inbox: api.Inbox }) {
-  const [messages, setMessages] = useState<Awaited<ReturnType<typeof api.listMessages>>["messages"]>([]);
+const FOLDERS: { key: api.Folder; label: string; icon: string }[] = [
+  { key: "inbox", label: "Inbox", icon: "📥" },
+  { key: "starred", label: "Starred", icon: "⭐" },
+  { key: "sent", label: "Sent", icon: "📤" },
+  { key: "archive", label: "Archive", icon: "🗄" },
+  { key: "trash", label: "Trash", icon: "🗑" },
+];
+
+function InboxTab({ inbox, onCompose }: { inbox: api.Inbox; onCompose: (p?: ComposePrefill) => void }) {
+  const [folder, setFolder] = useState<api.Folder>("inbox");
+  const [q, setQ] = useState("");
+  const [messages, setMessages] = useState<api.MessageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
-  async function load() {
+  async function load(f = folder, query = q) {
     setLoading(true);
     setError("");
     try {
-      const r = await api.listMessages(inbox.id);
+      const r = await api.listMessages(inbox.id, { folder: f, q: query || undefined });
       setMessages(r.messages);
     } catch (err: unknown) {
       setError((err as Error).message ?? "Couldn't load messages.");
@@ -1082,18 +1287,61 @@ function InboxTab({ inbox }: { inbox: api.Inbox }) {
       setLoading(false);
     }
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inbox.id]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inbox.id, folder]);
+
+  // Debounced search
+  useEffect(() => {
+    const t = setTimeout(() => load(folder, q), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+
+  async function act(id: number, patch: Parameters<typeof api.updateMessage>[1]) {
+    try {
+      await api.updateMessage(id, patch);
+      load();
+    } catch (err: unknown) {
+      setError((err as Error).message ?? "Action failed.");
+    }
+  }
+
+  async function destroy(id: number) {
+    try {
+      await api.deleteMessage(id);
+      load();
+    } catch (err: unknown) {
+      setError((err as Error).message ?? "Delete failed.");
+    }
+  }
 
   if (openId !== null) {
-    return <MessageView id={openId} onBack={() => setOpenId(null)} />;
+    return (
+      <MessageView
+        id={openId}
+        onBack={() => { setOpenId(null); load(); }}
+        onReply={(m) =>
+          onCompose({
+            to: m.fromAddress,
+            subject: m.subject?.startsWith("Re:") ? m.subject : `Re: ${m.subject ?? ""}`,
+            text: `\n\n――― On ${new Date(m.sentAt ?? m.createdAt).toLocaleString()}, ${m.fromAddress} wrote:\n${(m.textBody ?? "").split("\n").map((l) => `> ${l}`).join("\n")}`,
+          })
+        }
+        onForward={(m) =>
+          onCompose({
+            subject: m.subject?.startsWith("Fwd:") ? m.subject : `Fwd: ${m.subject ?? ""}`,
+            text: `\n\n――― Forwarded message ―――\nFrom: ${m.fromAddress}\nDate: ${new Date(m.sentAt ?? m.createdAt).toLocaleString()}\nSubject: ${m.subject ?? ""}\n\n${m.textBody ?? ""}`,
+          })
+        }
+      />
+    );
   }
 
   return (
     <div className="mx-auto max-w-3xl p-8 pb-24 sm:pb-8">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">📬 Inbox</h1>
+        <h1 className="text-3xl font-bold tracking-tight">📬 Mail</h1>
         <button
-          onClick={load}
+          onClick={() => load()}
           disabled={loading}
           className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 transition hover:border-cyan-400/40 hover:text-white disabled:opacity-50"
         >
@@ -1101,54 +1349,137 @@ function InboxTab({ inbox }: { inbox: api.Inbox }) {
         </button>
       </div>
 
+      {/* Folder tabs */}
+      <div className="mt-5 flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.02] p-1">
+        {FOLDERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => { setFolder(f.key); setQ(""); }}
+            className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+              folder === f.key
+                ? "bg-gradient-to-r from-cyan-500/20 to-violet-500/15 text-white shadow-[inset_0_0_0_1px_rgba(0,229,255,0.25)]"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            {f.icon} {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <input
+        type="search"
+        placeholder={`Search ${folder}...`}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        className="mt-3 block w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+      />
+
       {error && (
-        <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}{" "}
-          <button onClick={load} className="underline">Retry</button>
+        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error} <button onClick={() => load()} className="underline">Retry</button>
         </div>
       )}
 
-      <div className="mt-6 space-y-2">
+      <div className="mt-4 space-y-2">
         {!loading && !error && messages.length === 0 && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center">
-            <p className="text-white/60">Your inbox is live and listening.</p>
-            <button
-              onClick={() => {
-                navigator.clipboard?.writeText(inbox.address);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1800);
-              }}
-              className="mt-3 inline-block rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 font-mono text-sm text-cyan-300 transition hover:border-cyan-400/50"
-            >
-              {copied ? "Copied ✓" : inbox.address}
-            </button>
-            <p className="mt-3 text-sm text-white/40">
-              Send a test email here from any account — it lands in seconds.
-            </p>
-          </div>
+          folder === "inbox" && !q ? (
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center">
+              <p className="text-white/60">Your inbox is live and listening.</p>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(inbox.address);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1800);
+                }}
+                className="mt-3 inline-block rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 font-mono text-sm text-cyan-300 transition hover:border-cyan-400/50"
+              >
+                {copied ? "Copied ✓" : inbox.address}
+              </button>
+              <p className="mt-3 text-sm text-white/40">Send a test email here from any account — it lands in seconds.</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/40">
+              {q ? `Nothing matches “${q}”.` : `Nothing in ${folder}.`}
+            </div>
+          )
         )}
         {messages.map((m) => (
-          <button
+          <div
             key={m.id}
-            onClick={() => setOpenId(m.id)}
-            className="block w-full rounded-xl border border-white/10 bg-white/[0.02] p-4 text-left transition hover:border-cyan-400/30 hover:bg-white/[0.04]"
+            className={`group flex items-start gap-3 rounded-xl border p-4 transition hover:border-cyan-400/30 hover:bg-white/[0.04] ${
+              m.read === false ? "border-cyan-400/15 bg-cyan-500/[0.04]" : "border-white/10 bg-white/[0.02]"
+            }`}
           >
-            <div className="flex items-baseline justify-between gap-3">
-              <strong className="truncate text-white/95">{m.subject ?? "(no subject)"}</strong>
-              <span className="shrink-0 text-xs text-white/40">{new Date(m.createdAt).toLocaleString()}</span>
+            {/* Star */}
+            <button
+              onClick={() => act(m.id, { starred: !m.starred })}
+              title={m.starred ? "Unstar" : "Star"}
+              className={`mt-0.5 shrink-0 text-base transition ${m.starred ? "" : "opacity-30 hover:opacity-100"}`}
+            >
+              {m.starred ? "⭐" : "☆"}
+            </button>
+            {/* Body — click to open */}
+            <button onClick={() => setOpenId(m.id)} className="min-w-0 flex-1 text-left">
+              <div className="flex items-baseline justify-between gap-3">
+                <strong className={`truncate ${m.read === false ? "text-white" : "text-white/80"}`}>
+                  {m.subject || "(no subject)"}
+                </strong>
+                <span className="shrink-0 text-xs text-white/40">{new Date(m.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="mt-1 text-xs text-white/50">
+                {folder === "sent" ? `To ${(m.toAddresses ?? []).join(", ")}` : (m.fromAddress ?? m.from_address)}
+              </div>
+              {m.summary && <p className="mt-1.5 text-sm text-white/60 line-clamp-2">{m.summary}</p>}
+            </button>
+            {/* Row actions */}
+            <div className="flex shrink-0 flex-col gap-1.5 opacity-100 transition sm:flex-row sm:opacity-0 sm:group-hover:opacity-100">
+              {folder !== "archive" && folder !== "trash" && folder !== "sent" && (
+                <RowAction title="Archive" onClick={() => act(m.id, { folder: "archive" })}>🗄</RowAction>
+              )}
+              {folder !== "trash" ? (
+                <RowAction title="Move to trash" onClick={() => act(m.id, { folder: "trash" })}>🗑</RowAction>
+              ) : (
+                <>
+                  <RowAction title="Restore to inbox" onClick={() => act(m.id, { folder: "inbox" })}>↩</RowAction>
+                  <RowAction title="Delete forever" onClick={() => destroy(m.id)}>✕</RowAction>
+                </>
+              )}
             </div>
-            <div className="mt-1 text-xs text-white/50">{m.fromAddress ?? m.from_address}</div>
-            {m.summary && <p className="mt-2 text-sm text-white/70 line-clamp-2">{m.summary}</p>}
-          </button>
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
+function RowAction({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="rounded-lg border border-white/10 px-2 py-1 text-sm text-white/60 transition hover:border-cyan-400/40 hover:text-white"
+    >
+      {children}
+    </button>
+  );
+}
+
 // ─── Message reading view ─────────────────────────────────────────────
-function MessageView({ id, onBack }: { id: number; onBack: () => void }) {
-  const [msg, setMsg] = useState<Awaited<ReturnType<typeof api.getMessage>>["message"] | null>(null);
+type FullMessage = Awaited<ReturnType<typeof api.getMessage>>["message"];
+
+function MessageView({
+  id,
+  onBack,
+  onReply,
+  onForward,
+}: {
+  id: number;
+  onBack: () => void;
+  onReply: (m: FullMessage) => void;
+  onForward: (m: FullMessage) => void;
+}) {
+  const [msg, setMsg] = useState<FullMessage | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -1156,6 +1487,15 @@ function MessageView({ id, onBack }: { id: number; onBack: () => void }) {
       .then((r) => setMsg(r.message))
       .catch((err: unknown) => setError((err as Error).message ?? "Couldn't open this message."));
   }, [id]);
+
+  async function move(folder: "archive" | "trash") {
+    try {
+      await api.updateMessage(id, { folder });
+      onBack();
+    } catch (err: unknown) {
+      setError((err as Error).message ?? "Action failed.");
+    }
+  }
 
   // Plain-text first; if the email is HTML-only, strip tags rather than
   // rendering untrusted markup (no tracking pixels, no script surface).
@@ -1178,7 +1518,7 @@ function MessageView({ id, onBack }: { id: number; onBack: () => void }) {
   return (
     <div className="mx-auto max-w-3xl p-8 pb-24 sm:pb-8">
       <button onClick={onBack} className="mb-6 text-sm text-white/50 transition hover:text-cyan-300">
-        ← Back to inbox
+        ← Back
       </button>
       {error && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
@@ -1186,7 +1526,7 @@ function MessageView({ id, onBack }: { id: number; onBack: () => void }) {
       {!msg && !error && <div className="text-white/40">Opening...</div>}
       {msg && (
         <article className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-          <h1 className="text-2xl font-bold tracking-tight">{msg.subject ?? "(no subject)"}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{msg.subject || "(no subject)"}</h1>
           <div className="mt-3 space-y-1 border-b border-white/10 pb-4 text-sm">
             <div className="text-white/70">From <span className="font-mono text-cyan-300">{msg.fromAddress}</span></div>
             <div className="text-white/50">To {msg.toAddresses.join(", ")}</div>
@@ -1194,6 +1534,33 @@ function MessageView({ id, onBack }: { id: number; onBack: () => void }) {
           </div>
           <div className="mt-5 whitespace-pre-wrap text-[15px] leading-relaxed text-white/85">
             {body ?? <span className="text-white/40">(empty message)</span>}
+          </div>
+          {/* Actions */}
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-5">
+            <button
+              onClick={() => onReply(msg)}
+              className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-2.5 text-sm font-semibold text-[#04070D] transition hover:shadow-[0_8px_24px_-8px_rgba(0,229,255,0.6)]"
+            >
+              ↩ Reply
+            </button>
+            <button
+              onClick={() => onForward(msg)}
+              className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-white/70 transition hover:border-cyan-400/40 hover:text-white"
+            >
+              ⤳ Forward
+            </button>
+            <button
+              onClick={() => move("archive")}
+              className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-white/70 transition hover:border-cyan-400/40 hover:text-white"
+            >
+              🗄 Archive
+            </button>
+            <button
+              onClick={() => move("trash")}
+              className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-white/70 transition hover:border-red-400/40 hover:text-red-300"
+            >
+              🗑 Trash
+            </button>
           </div>
         </article>
       )}
