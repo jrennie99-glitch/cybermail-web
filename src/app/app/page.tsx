@@ -516,17 +516,82 @@ function VerifyEmail({
 type Tab = "brain" | "inbox" | "calendar";
 
 function Shell({ onLogout }: { onLogout: () => void }) {
-  const [tab, setTab] = useState<Tab>("brain");
+  const [tab, setTab] = useState<Tab>("inbox");
+  const [inboxes, setInboxes] = useState<api.Inbox[] | null>(null); // null = loading
+  const [inboxErr, setInboxErr] = useState("");
+  const [composing, setComposing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function loadInboxes() {
+    try {
+      const r = await api.listInboxes();
+      setInboxes(r.inboxes);
+    } catch (err: unknown) {
+      setInboxes([]);
+      setInboxErr((err as Error).message ?? "Couldn't load inboxes.");
+    }
+  }
+  useEffect(() => { loadInboxes(); }, []);
+
+  const inbox = inboxes && inboxes.length > 0 ? inboxes[0] : null;
+
+  // Still finding out whether this account has an address
+  if (inboxes === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#04070D]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+      </div>
+    );
+  }
+
+  // No address yet → onboarding takes over the whole screen
+  if (!inbox) {
+    return (
+      <ClaimAddress
+        loadError={inboxErr}
+        onClaimed={(ib) => setInboxes([ib])}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  function copyAddress() {
+    navigator.clipboard?.writeText(inbox!.address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  }
+
   return (
     <div className="flex min-h-screen bg-[#04070D] text-white">
       <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-[#070B14] p-6 sm:flex sm:flex-col">
-        <div className="mb-10 flex items-center gap-2.5">
+        <div className="mb-6 flex items-center gap-2.5">
           <Logo className="h-6 w-6" />
           <span className="font-mono text-xs font-semibold tracking-[0.3em]">CYBRMAIL</span>
         </div>
+
+        {/* Your identity — always visible, one click to copy */}
+        <button
+          onClick={copyAddress}
+          title="Copy address"
+          className="mb-6 w-full rounded-lg border border-cyan-400/20 bg-cyan-500/[0.06] px-3 py-2.5 text-left transition hover:border-cyan-400/40"
+        >
+          <div className="text-[10px] uppercase tracking-widest text-white/35">Your address</div>
+          <div className="mt-0.5 truncate font-mono text-xs text-cyan-300">
+            {copied ? "Copied ✓" : inbox.address}
+          </div>
+        </button>
+
+        <button
+          onClick={() => setComposing(true)}
+          className="mb-8 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-3 text-sm font-semibold text-[#04070D] shadow-[0_8px_24px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.7)]"
+        >
+          ✉ Compose
+        </button>
+
         <nav className="flex flex-1 flex-col gap-1">
-          <NavBtn icon="🧠" label="Brain" active={tab === "brain"} onClick={() => setTab("brain")} />
           <NavBtn icon="📬" label="Inbox" active={tab === "inbox"} onClick={() => setTab("inbox")} />
+          <NavBtn icon="🧠" label="Brain" active={tab === "brain"} onClick={() => setTab("brain")} />
           <NavBtn icon="📅" label="Calendar" active={tab === "calendar"} onClick={() => setTab("calendar")} />
         </nav>
         <button
@@ -537,10 +602,315 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         </button>
       </aside>
       <main className="flex-1 overflow-auto">
+        {/* Mobile header with address + compose */}
+        <div className="flex items-center justify-between gap-3 border-b border-white/5 p-4 sm:hidden">
+          <button onClick={copyAddress} className="min-w-0 truncate font-mono text-xs text-cyan-300">
+            {copied ? "Copied ✓" : inbox.address}
+          </button>
+          <button
+            onClick={() => setComposing(true)}
+            className="shrink-0 rounded-lg bg-gradient-to-r from-cyan-400 to-violet-500 px-3 py-2 text-xs font-semibold text-[#04070D]"
+          >
+            ✉ Compose
+          </button>
+        </div>
         {tab === "brain" && <BrainTab />}
-        {tab === "inbox" && <InboxTab />}
+        {tab === "inbox" && <InboxTab inbox={inbox} />}
         {tab === "calendar" && <CalendarTab />}
+        {/* Mobile bottom nav */}
+        <div className="fixed inset-x-0 bottom-0 flex border-t border-white/10 bg-[#070B14] sm:hidden">
+          {(["inbox", "brain", "calendar"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`flex-1 py-3 text-xs font-medium capitalize ${tab === t ? "text-cyan-300" : "text-white/50"}`}
+            >
+              {t === "inbox" ? "📬" : t === "brain" ? "🧠" : "📅"} {t}
+            </button>
+          ))}
+        </div>
       </main>
+      {composing && (
+        <ComposeModal inbox={inbox} onClose={() => setComposing(false)} />
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  CLAIM ADDRESS — first-run onboarding: pick your @cybrmail.net handle
+// ───────────────────────────────────────────────────────────────────────
+const HANDLE_RE = /^[a-z0-9](?:[a-z0-9.]{1,28}[a-z0-9])?$/;
+
+function ClaimAddress({
+  loadError,
+  onClaimed,
+  onLogout,
+}: {
+  loadError?: string;
+  onClaimed: (inbox: api.Inbox) => void;
+  onLogout: () => void;
+}) {
+  const [handle, setHandle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  // null = nothing typed yet · "checking" · "available" · "unavailable"
+  const [status, setStatus] = useState<null | "checking" | "available" | "unavailable">(null);
+  const [reason, setReason] = useState("");
+
+  const cleaned = handle.toLowerCase().replace(/[^a-z0-9.]/g, "");
+  const valid = HANDLE_RE.test(cleaned) && !cleaned.includes("..");
+
+  // Live availability: debounce 350ms after typing stops, ignore stale replies
+  useEffect(() => {
+    if (!cleaned || cleaned.length < 3) {
+      setStatus(null);
+      setSuggestions([]);
+      setReason("");
+      return;
+    }
+    setStatus("checking");
+    let stale = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.checkHandle(cleaned);
+        if (stale) return;
+        if (r.available) {
+          setStatus("available");
+          setSuggestions([]);
+          setReason("");
+        } else {
+          setStatus("unavailable");
+          setReason(r.reason === "taken" ? "Taken" : r.reason || "Unavailable");
+          setSuggestions(r.suggestions ?? []);
+        }
+      } catch {
+        if (!stale) setStatus(null); // backend missing the endpoint — claim still does a final check
+      }
+    }, 350);
+    return () => { stale = true; clearTimeout(t); };
+  }, [cleaned]);
+
+  async function claim(h?: string) {
+    const target = h ?? cleaned;
+    if (!HANDLE_RE.test(target) || target.includes("..")) {
+      setError("3–30 characters: lowercase letters, numbers, single dots. Must start and end with a letter or number.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.createInbox(target);
+      onClaimed(r.inbox);
+    } catch (err: unknown) {
+      const e = err as Error & { status?: number; body?: { suggestions?: string[] } };
+      if (e.status === 404) {
+        setError("The server doesn't support address creation yet (POST /api/inboxes returned 404). The app is ready — the backend needs this endpoint.");
+      } else if (e.status === 409) {
+        setError(`${target}@cybrmail.net is taken. Try one of these:`);
+        setSuggestions(e.body?.suggestions ?? suggestions);
+      } else {
+        setError(e.message ?? "Couldn't create your address. Try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function pick(s: string) {
+    setHandle(s);
+    setError("");
+  }
+
+  const inputRing =
+    status === "available"
+      ? "border-emerald-400/50 focus-within:ring-emerald-400/20"
+      : status === "unavailable"
+        ? "border-red-400/40 focus-within:ring-red-400/15"
+        : "border-white/10 focus-within:border-cyan-400/50 focus-within:ring-cyan-400/20";
+
+  return (
+    <div className="relative flex min-h-screen items-center justify-center bg-[#04070D] px-6 text-white">
+      <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none" aria-hidden />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(800px circle at 50% 30%, rgba(0,229,255,0.07), transparent 60%)" }}
+        aria-hidden
+      />
+      <div className="relative w-full max-w-md">
+        <div className="mb-6 flex items-center gap-3">
+          <Logo className="h-7 w-7" />
+          <span className="font-mono text-xs font-semibold tracking-[0.3em]">CYBRMAIL</span>
+        </div>
+        <h1 className="font-display text-4xl font-bold tracking-tight">
+          Claim your <span className="text-gradient-cyber">address.</span>
+        </h1>
+        <p className="mt-3 text-[15px] text-white/55">
+          This is your permanent Cybrmail identity. Pick it well — it&apos;s yours forever.
+        </p>
+
+        {loadError && (
+          <div className="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Couldn&apos;t check existing inboxes ({loadError}). You can still try claiming one.
+          </div>
+        )}
+
+        <div className={`mt-7 flex items-stretch overflow-hidden rounded-xl border bg-white/[0.03] transition focus-within:ring-2 ${inputRing}`}>
+          <input
+            autoFocus
+            type="text"
+            spellCheck={false}
+            autoCapitalize="none"
+            placeholder="yourname"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, "").slice(0, 30))}
+            onKeyDown={(e) => e.key === "Enter" && status === "available" && claim()}
+            className="min-w-0 flex-1 bg-transparent px-4 py-4 font-mono text-base text-white placeholder:text-white/25 focus:outline-none"
+          />
+          <span className="flex select-none items-center border-l border-white/10 bg-white/[0.02] px-4 font-mono text-sm text-cyan-300/80">
+            @cybrmail.net
+          </span>
+        </div>
+
+        {/* Live status line */}
+        <div className="mt-2 min-h-[1.25rem] text-sm" aria-live="polite">
+          {status === "checking" && <span className="text-white/40">Checking…</span>}
+          {status === "available" && (
+            <span className="text-emerald-300">✓ {cleaned}@cybrmail.net is available</span>
+          )}
+          {status === "unavailable" && <span className="text-red-300">✗ {reason}</span>}
+        </div>
+
+        {/* Suggestion chips */}
+        {suggestions.length > 0 && (
+          <div className="mt-2">
+            <div className="mb-2 text-xs uppercase tracking-widest text-white/35">Available instead</div>
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => pick(s)}
+                  className="rounded-full border border-cyan-400/25 bg-cyan-500/[0.07] px-3.5 py-1.5 font-mono text-sm text-cyan-300 transition hover:border-cyan-400/60 hover:bg-cyan-500/15"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={() => claim()}
+          disabled={busy || !valid || status === "unavailable" || status === "checking"}
+          className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-4 text-sm font-semibold text-[#04070D] shadow-[0_8px_32px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_12px_40px_-8px_rgba(0,229,255,0.7)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? "Claiming..." : cleaned && valid ? `Claim ${cleaned}@cybrmail.net` : "Claim your address"}
+        </button>
+
+        <button
+          onClick={onLogout}
+          className="mt-6 w-full text-center text-sm text-white/40 transition hover:text-white/70"
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  COMPOSE — send mail from your address
+// ───────────────────────────────────────────────────────────────────────
+function ComposeModal({ inbox, onClose }: { inbox: api.Inbox; onClose: () => void }) {
+  const [to, setTo] = useState("");
+  const [subject, setSubject] = useState("");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const recipients = to.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+  const validTo = recipients.length > 0 && recipients.every((r) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r));
+
+  async function send() {
+    if (!validTo) { setError("Enter at least one valid recipient address."); return; }
+    if (!subject.trim() && !text.trim()) { setError("Add a subject or a message."); return; }
+    setBusy(true);
+    setError("");
+    try {
+      await api.sendEmail({ inboxId: inbox.id, to: recipients, subject: subject.trim(), text });
+      setSent(true);
+      setTimeout(onClose, 1200);
+    } catch (err: unknown) {
+      setError((err as Error).message ?? "Send failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+      onClick={(e) => e.target === e.currentTarget && !busy && onClose()}
+    >
+      <div className="w-full max-w-xl rounded-t-2xl border border-white/10 bg-[#0A0F1A] p-6 shadow-2xl sm:rounded-2xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight">New message</h2>
+          <button onClick={onClose} disabled={busy} className="rounded-lg px-2 py-1 text-white/40 transition hover:bg-white/[0.06] hover:text-white">✕</button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+            <span className="text-xs uppercase tracking-widest text-white/35">From</span>
+            <span className="truncate font-mono text-sm text-cyan-300">{inbox.address}</span>
+          </div>
+          <input
+            type="text"
+            placeholder="To — recipient@example.com, another@example.com"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="block w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+          />
+          <input
+            type="text"
+            placeholder="Subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="block w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+          />
+          <textarea
+            placeholder="Write your message..."
+            rows={8}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="block w-full resize-y rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+          />
+        </div>
+
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
+        )}
+
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button onClick={onClose} disabled={busy} className="rounded-xl px-4 py-3 text-sm text-white/50 transition hover:text-white">
+            Discard
+          </button>
+          <button
+            onClick={send}
+            disabled={busy || sent}
+            className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-6 py-3 text-sm font-semibold text-[#04070D] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.6)] disabled:opacity-60"
+          >
+            {sent ? "Sent ✓" : busy ? "Sending..." : "Send"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -693,45 +1063,140 @@ function Row({ text, sub }: { text: string; sub?: string }) {
 }
 
 // ─── Inbox tab ────────────────────────────────────────────────────────
-function InboxTab() {
+function InboxTab({ inbox }: { inbox: api.Inbox }) {
   const [messages, setMessages] = useState<Awaited<ReturnType<typeof api.listMessages>>["messages"]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const inboxes = await api.listInboxes();
-        if (inboxes.inboxes.length > 0) {
-          const r = await api.listMessages(inboxes.inboxes[0].id);
-          setMessages(r.messages);
-        }
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const r = await api.listMessages(inbox.id);
+      setMessages(r.messages);
+    } catch (err: unknown) {
+      setError((err as Error).message ?? "Couldn't load messages.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inbox.id]);
 
-  if (loading) return <div className="p-8 text-white/40">Loading inbox...</div>;
+  if (openId !== null) {
+    return <MessageView id={openId} onBack={() => setOpenId(null)} />;
+  }
+
   return (
-    <div className="mx-auto max-w-3xl p-8">
-      <h1 className="text-3xl font-bold tracking-tight">📬 Inbox</h1>
+    <div className="mx-auto max-w-3xl p-8 pb-24 sm:pb-8">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold tracking-tight">📬 Inbox</h1>
+        <button
+          onClick={load}
+          disabled={loading}
+          className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 transition hover:border-cyan-400/40 hover:text-white disabled:opacity-50"
+        >
+          {loading ? "Refreshing..." : "↻ Refresh"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}{" "}
+          <button onClick={load} className="underline">Retry</button>
+        </div>
+      )}
+
       <div className="mt-6 space-y-2">
-        {messages.length === 0 && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/40">
-            No messages yet. Send yourself an email to see it land here.
+        {!loading && !error && messages.length === 0 && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center">
+            <p className="text-white/60">Your inbox is live and listening.</p>
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(inbox.address);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1800);
+              }}
+              className="mt-3 inline-block rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 font-mono text-sm text-cyan-300 transition hover:border-cyan-400/50"
+            >
+              {copied ? "Copied ✓" : inbox.address}
+            </button>
+            <p className="mt-3 text-sm text-white/40">
+              Send a test email here from any account — it lands in seconds.
+            </p>
           </div>
         )}
         {messages.map((m) => (
-          <div key={m.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4 transition hover:border-cyan-400/30">
+          <button
+            key={m.id}
+            onClick={() => setOpenId(m.id)}
+            className="block w-full rounded-xl border border-white/10 bg-white/[0.02] p-4 text-left transition hover:border-cyan-400/30 hover:bg-white/[0.04]"
+          >
             <div className="flex items-baseline justify-between gap-3">
               <strong className="truncate text-white/95">{m.subject ?? "(no subject)"}</strong>
               <span className="shrink-0 text-xs text-white/40">{new Date(m.createdAt).toLocaleString()}</span>
             </div>
             <div className="mt-1 text-xs text-white/50">{m.fromAddress ?? m.from_address}</div>
             {m.summary && <p className="mt-2 text-sm text-white/70 line-clamp-2">{m.summary}</p>}
-          </div>
+          </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Message reading view ─────────────────────────────────────────────
+function MessageView({ id, onBack }: { id: number; onBack: () => void }) {
+  const [msg, setMsg] = useState<Awaited<ReturnType<typeof api.getMessage>>["message"] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.getMessage(id)
+      .then((r) => setMsg(r.message))
+      .catch((err: unknown) => setError((err as Error).message ?? "Couldn't open this message."));
+  }, [id]);
+
+  // Plain-text first; if the email is HTML-only, strip tags rather than
+  // rendering untrusted markup (no tracking pixels, no script surface).
+  const body =
+    msg?.textBody ??
+    (msg?.htmlBody
+      ? msg.htmlBody
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n\n")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .trim()
+      : null);
+
+  return (
+    <div className="mx-auto max-w-3xl p-8 pb-24 sm:pb-8">
+      <button onClick={onBack} className="mb-6 text-sm text-white/50 transition hover:text-cyan-300">
+        ← Back to inbox
+      </button>
+      {error && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
+      )}
+      {!msg && !error && <div className="text-white/40">Opening...</div>}
+      {msg && (
+        <article className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
+          <h1 className="text-2xl font-bold tracking-tight">{msg.subject ?? "(no subject)"}</h1>
+          <div className="mt-3 space-y-1 border-b border-white/10 pb-4 text-sm">
+            <div className="text-white/70">From <span className="font-mono text-cyan-300">{msg.fromAddress}</span></div>
+            <div className="text-white/50">To {msg.toAddresses.join(", ")}</div>
+            <div className="text-xs text-white/40">{new Date(msg.sentAt ?? msg.createdAt).toLocaleString()}</div>
+          </div>
+          <div className="mt-5 whitespace-pre-wrap text-[15px] leading-relaxed text-white/85">
+            {body ?? <span className="text-white/40">(empty message)</span>}
+          </div>
+        </article>
+      )}
     </div>
   );
 }

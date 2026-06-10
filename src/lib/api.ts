@@ -90,7 +90,28 @@ export const logout = async () => {
 export const getMe = () => request<{ user: { id: number; email: string; name: string | null; plan: string; emailVerified?: boolean } }>("/api/auth/me");
 
 // Inboxes + messages
-export const listInboxes = () => request<{ inboxes: Array<{ id: number; address: string; displayName: string | null }> }>("/api/inboxes");
+export interface Inbox { id: number; address: string; displayName: string | null }
+export const listInboxes = () => request<{ inboxes: Inbox[] }>("/api/inboxes");
+
+/**
+ * Live availability check for a handle. Returns suggestions when taken,
+ * reserved, or invalid.
+ */
+export const checkHandle = (username: string) =>
+  request<{ available: boolean; address?: string; reason?: string; suggestions?: string[] }>(
+    `/api/inboxes/check?username=${encodeURIComponent(username)}`
+  );
+
+/**
+ * Claim an @cybrmail.net address. Sends both `username` and full `address`
+ * so the backend can accept either shape. Backend errors (taken, invalid,
+ * endpoint missing) surface as ApiError with the server's message.
+ */
+export const createInbox = (username: string) =>
+  request<{ inbox: Inbox }>("/api/inboxes", {
+    method: "POST",
+    body: { username, address: `${username}@cybrmail.net` },
+  });
 export const listMessages = (inboxId: number, limit = 50) =>
   request<{ messages: Array<{ id: number; subject: string; from_address?: string; fromAddress: string; summary?: string | null; createdAt: string; labels: string[] }> }>(
     `/api/inboxes/${inboxId}/messages?limit=${limit}`
