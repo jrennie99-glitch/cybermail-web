@@ -201,6 +201,14 @@ export async function downloadAttachment(id: number, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+// ─── Assistant ───
+export interface AssistantAction { tool: string; input?: Record<string, unknown>; ok: boolean; error?: string }
+export const assistantChat = (messages: { role: "user" | "assistant"; content: string }[]) =>
+  request<{ reply: string; actions: AssistantAction[] }>("/api/assistant/chat", {
+    method: "POST",
+    body: { messages },
+  });
+
 // ─── Burners ───
 export interface Burner { id: number; address: string; label: string | null; active: boolean; createdAt?: string }
 export const createBurner = (label?: string) =>

@@ -657,7 +657,7 @@ type Tab = "brain" | "inbox" | "calendar";
 type ComposePrefill = { to?: string; subject?: string; text?: string };
 
 function Shell({ onLogout }: { onLogout: () => void }) {
-  const [view, setView] = useState<api.Folder | "brain" | "calendar" | "burners" | "agents">("inbox");
+  const [view, setView] = useState<api.Folder | "brain" | "calendar" | "burners" | "agents" | "assistant">("inbox");
   const [searchQ, setSearchQ] = useState("");
   const [inboxes, setInboxes] = useState<api.Inbox[] | null>(null); // null = loading
   const [inboxErr, setInboxErr] = useState("");
@@ -676,7 +676,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   useEffect(() => { loadInboxes(); }, []);
 
   const inbox = inboxes && inboxes.length > 0 ? inboxes[0] : null;
-  const isMail = view !== "brain" && view !== "calendar" && view !== "burners" && view !== "agents";
+  const isMail = view !== "brain" && view !== "calendar" && view !== "burners" && view !== "agents" && view !== "assistant";
 
   if (inboxes === null) {
     return (
@@ -762,6 +762,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             />
           ))}
           <div className="my-3 border-t border-white/[0.07]" />
+          <RailBtn icon="✨" label="Assistant" active={view === "assistant"} onClick={() => setView("assistant")} />
           <RailBtn icon="🧠" label="Brain" active={view === "brain"} onClick={() => setView("brain")} />
           <RailBtn icon="📅" label="Calendar" active={view === "calendar"} onClick={() => setView("calendar")} />
           <div className="my-3 border-t border-white/[0.07]" />
@@ -797,6 +798,8 @@ function Shell({ onLogout }: { onLogout: () => void }) {
               onCompose={(p) => setCompose(p ?? {})}
               onCountsChanged={loadInboxes}
             />
+          ) : view === "assistant" ? (
+            <AssistantView address={inbox.address} />
           ) : view === "brain" ? (
             <BrainTab />
           ) : view === "burners" ? (
@@ -811,7 +814,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
 
       {/* Mobile bottom nav + FAB */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#070B14] sm:hidden">
-        {([["inbox", "📬 Mail"], ["brain", "🧠 Brain"], ["calendar", "📅 Calendar"]] as const).map(([k, label]) => (
+        {([["inbox", "📬 Mail"], ["assistant", "✨ Assist"], ["brain", "🧠 Brain"], ["calendar", "📅 Calendar"]] as const).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setView(k)}
@@ -1814,6 +1817,157 @@ function ReadingPane({
       )}
     </div>
   );
+}
+
+// ─── Assistant: talk to your email ────────────────────────────────────
+type ChatMsg = { role: "user" | "assistant"; content: string; actions?: api.AssistantAction[] };
+
+const ASSIST_SUGGESTIONS = [
+  "Summarize my unread mail",
+  "Find a news article about AI and email it to ",
+  "Email bob@cybrmail.net that I'm running 10 minutes late",
+  "What did I get from Alice this week?",
+];
+
+function actionChip(a: api.AssistantAction) {
+  const label =
+    a.tool === "send_email" ? `📧 Sent “${(a.input as { subject?: string })?.subject ?? "email"}” to ${((a.input as { to?: string[] })?.to ?? []).join(", ")}` :
+    a.tool === "web_search" ? `🌐 Searched the web: “${(a.input as { query?: string })?.query ?? ""}”` :
+    a.tool === "search_mail" ? `📨 Searched your mail: “${(a.input as { query?: string })?.query ?? ""}”` :
+    a.tool === "read_message" ? `📖 Read a message` : a.tool;
+  return a.ok ? label : `⚠️ ${label} — ${a.error}`;
+}
+
+function AssistantView({ address }: { address: string }) {
+  const [msgs, setMsgs] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+
+  async function send(text?: string) {
+    const content = (text ?? input).trim();
+    if (!content || busy) return;
+    const next: ChatMsg[] = [...msgs, { role: "user", content }];
+    setMsgs(next);
+    setInput("");
+    setBusy(true);
+    try {
+      const r = await api.assistantChat(next.map(({ role, content }) => ({ role, content })));
+      setMsgs([...next, { role: "assistant", content: r.reply, actions: r.actions }]);
+    } catch (e: unknown) {
+      setMsgs([...next, { role: "assistant", content: `⚠️ ${(e as Error).message ?? "Something went wrong."}` }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function mic() {
+    const W = window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike; SpeechRecognition?: new () => SpeechRecognitionLike };
+    const Ctor = W.SpeechRecognition ?? W.webkitSpeechRecognition;
+    if (!Ctor) { setMsgs((m) => [...m, { role: "assistant", content: "Voice input isn't supported in this browser — type your command instead." }]); return; }
+    const rec = new Ctor();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      const t = e.results?.[0]?.[0]?.transcript;
+      if (t) send(t);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    setListening(true);
+    rec.start();
+  }
+
+  return (
+    <div className="mx-auto flex h-full max-w-3xl flex-col p-4 sm:p-6">
+      <h1 className="text-2xl font-bold tracking-tight">✨ Assistant</h1>
+      <p className="mt-1 text-sm text-white/55">
+        Talk to your email. It can search your mail, find things on the web, and send email as {address}.
+      </p>
+
+      <div className="mt-5 flex-1 space-y-4 overflow-y-auto pb-4">
+        {msgs.length === 0 && (
+          <div className="space-y-2">
+            <div className="text-xs uppercase tracking-widest text-white/35">Try saying</div>
+            <div className="flex flex-wrap gap-2">
+              {ASSIST_SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => (s.endsWith(" ") ? setInput(s) : send(s))}
+                  className="rounded-full border border-white/12 px-3.5 py-2 text-left text-xs text-white/70 transition hover:border-cyan-400/50 hover:text-white"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {msgs.map((m, i) => (
+          <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+            <div
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                m.role === "user"
+                  ? "bg-gradient-to-r from-cyan-500/25 to-violet-500/20 text-white"
+                  : "border border-white/10 bg-white/[0.03] text-white/90"
+              }`}
+            >
+              <div className="whitespace-pre-wrap">{m.content}</div>
+              {m.actions && m.actions.length > 0 && (
+                <div className="mt-2.5 space-y-1 border-t border-white/10 pt-2">
+                  {m.actions.map((a, j) => (
+                    <div key={j} className="text-xs text-cyan-300/80">{actionChip(a)}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {busy && (
+          <div className="flex items-center gap-2 text-sm text-white/40">
+            <span className="h-2 w-2 animate-ping rounded-full bg-cyan-400" /> Working…
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-end gap-2 border-t border-white/[0.07] pt-4">
+        <button
+          onClick={mic}
+          title="Speak your command"
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition ${
+            listening
+              ? "animate-pulse bg-gradient-to-r from-red-500 to-orange-500 text-white"
+              : "border border-white/15 text-white/70 hover:border-cyan-400/50 hover:text-white"
+          }`}
+        >
+          🎙
+        </button>
+        <textarea
+          rows={1}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder="Tell your email what to do…"
+          className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm placeholder:text-white/30 focus:border-cyan-400/50 focus:outline-none"
+        />
+        <button
+          onClick={() => send()}
+          disabled={busy || !input.trim()}
+          className="h-11 shrink-0 rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 px-6 text-sm font-semibold text-[#04070D] disabled:opacity-50"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  onresult: ((e: { results?: { [i: number]: { [j: number]: { transcript?: string } } } }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
 }
 
 // ─── Burners: disposable addresses ────────────────────────────────────
