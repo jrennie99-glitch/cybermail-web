@@ -128,7 +128,7 @@ export type Folder = "inbox" | "starred" | "sent" | "archive" | "trash";
 export interface MessageSummary {
   id: number; subject: string | null; from_address?: string; fromAddress: string;
   toAddresses?: string[]; summary?: string | null; createdAt: string; labels: string[];
-  read?: boolean; starred?: boolean; folder?: string;
+  read?: boolean; starred?: boolean; folder?: string; hasAttachments?: boolean;
 }
 
 export const listMessages = (inboxId: number, opts: { folder?: Folder; q?: string; limit?: number } = {}) => {
@@ -146,7 +146,7 @@ export const deleteMessage = (id: number) =>
   request<{ ok: true }>(`/api/messages/${id}`, { method: "DELETE" });
 
 export const getMessage = (id: number) =>
-  request<{ message: { id: number; subject: string | null; fromAddress: string; toAddresses: string[]; textBody: string | null; htmlBody: string | null; createdAt: string; sentAt: string | null; labels: string[]; starred?: boolean; folder?: string } }>(
+  request<{ message: { id: number; subject: string | null; fromAddress: string; toAddresses: string[]; textBody: string | null; htmlBody: string | null; createdAt: string; sentAt: string | null; labels: string[]; starred?: boolean; folder?: string; attachments?: { id: number; filename: string; mime: string; size: number }[]; viewOnce?: boolean; expiresAt?: string | null } }>(
     `/api/messages/${id}`
   );
 
@@ -178,8 +178,44 @@ export const getInboxHealth = () =>
   );
 
 // Send
-export const sendEmail = (opts: { inboxId: number; to: string[]; subject: string; text: string; selfDestruct?: { hours?: number; viewOnce?: boolean } }) =>
-  request("/api/send", { method: "POST", body: opts });
+export interface OutAttachment { filename: string; mime: string; dataBase64: string }
+export const sendEmail = (opts: {
+  inboxId: number; to: string[]; subject: string; text: string;
+  attachments?: OutAttachment[];
+  selfDestruct?: { hours?: number; viewOnce?: boolean };
+}) => request<{ ok: true; messageId: number }>("/api/send", { method: "POST", body: opts });
+
+// Authenticated attachment download → object URL
+export async function downloadAttachment(id: number, filename: string) {
+  const t = typeof window !== "undefined" ? window.localStorage.getItem("cybermail_token") : null;
+  const res = await fetch(`${API_BASE}/api/attachments/${id}`, {
+    headers: t ? { Authorization: `Bearer ${t}` } : {},
+  });
+  if (!res.ok) throw new ApiError(`Download failed (${res.status})`, res.status, null);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// ─── Burners ───
+export interface Burner { id: number; address: string; label: string | null; active: boolean; createdAt?: string }
+export const createBurner = (label?: string) =>
+  request<{ burner: Burner }>("/api/burners", { method: "POST", body: { label } });
+export const listBurners = () => request<{ burners: Burner[] }>("/api/burners");
+export const setBurnerActive = (id: number, active: boolean) =>
+  request<{ ok: true }>(`/api/burners/${id}`, { method: "PATCH", body: { active } });
+
+// ─── Agents ───
+export interface Agent { id: number; name: string; address: string; inboxId: number; keyPrefix: string; createdAt?: string }
+export const createAgent = (name: string, handle: string) =>
+  request<{ agent: Agent; apiKey: string }>("/api/agents", { method: "POST", body: { name, handle } });
+export const listAgents = () => request<{ agents: Agent[] }>("/api/agents");
+export const deleteAgent = (id: number) =>
+  request<{ ok: true }>(`/api/agents/${id}`, { method: "DELETE" });
 
 // ─── Web3: Sign in with Ethereum (SIWE) ─────────────────────────────────
 export const web3Challenge = (wallet: string) =>

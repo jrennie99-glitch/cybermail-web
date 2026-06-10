@@ -657,7 +657,8 @@ type Tab = "brain" | "inbox" | "calendar";
 type ComposePrefill = { to?: string; subject?: string; text?: string };
 
 function Shell({ onLogout }: { onLogout: () => void }) {
-  const [tab, setTab] = useState<Tab>("inbox");
+  const [view, setView] = useState<api.Folder | "brain" | "calendar" | "burners" | "agents">("inbox");
+  const [searchQ, setSearchQ] = useState("");
   const [inboxes, setInboxes] = useState<api.Inbox[] | null>(null); // null = loading
   const [inboxErr, setInboxErr] = useState("");
   const [compose, setCompose] = useState<ComposePrefill | null>(null);
@@ -675,8 +676,8 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   useEffect(() => { loadInboxes(); }, []);
 
   const inbox = inboxes && inboxes.length > 0 ? inboxes[0] : null;
+  const isMail = view !== "brain" && view !== "calendar" && view !== "burners" && view !== "agents";
 
-  // Still finding out whether this account has an address
   if (inboxes === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#04070D]">
@@ -685,7 +686,6 @@ function Shell({ onLogout }: { onLogout: () => void }) {
     );
   }
 
-  // No address yet → onboarding takes over the whole screen
   if (!inbox) {
     return (
       <ClaimAddress
@@ -704,86 +704,168 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#04070D] text-white">
-      <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-[#070B14] p-6 sm:flex sm:flex-col">
-        <div className="mb-6 flex items-center gap-2.5">
-          <Logo className="h-6 w-6" />
-          <span className="font-mono text-xs font-semibold tracking-[0.3em]">CYBRMAIL</span>
+    <div className="flex min-h-screen flex-col bg-[#04070D] text-white">
+      {/* ── Top bar: brand · search · identity ─────────────────────── */}
+      <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/[0.07] bg-[#070B14] px-4 sm:gap-6 sm:px-6">
+        <div className="flex items-center gap-2.5">
+          <Logo className="h-7 w-7" />
+          <span className="hidden font-mono text-xs font-bold tracking-[0.3em] sm:inline">CYBRMAIL</span>
         </div>
-
-        {/* Your identity — always visible, one click to copy */}
-        <button
-          onClick={copyAddress}
-          title="Copy address"
-          className="mb-6 w-full rounded-lg border border-cyan-400/20 bg-cyan-500/[0.06] px-3 py-2.5 text-left transition hover:border-cyan-400/40"
-        >
-          <div className="text-[10px] uppercase tracking-widest text-white/35">Your address</div>
-          <div className="mt-0.5 truncate font-mono text-xs text-cyan-300">
-            {copied ? "Copied ✓" : inbox.address}
-          </div>
-        </button>
-
-        <button
-          onClick={() => setCompose({})}
-          className="mb-8 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-3 text-sm font-semibold text-[#04070D] shadow-[0_8px_24px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.7)]"
-        >
-          ✉ Compose
-        </button>
-
-        <nav className="flex flex-1 flex-col gap-1">
-          <NavBtn icon="📬" label="Inbox" active={tab === "inbox"} onClick={() => setTab("inbox")} badge={inbox.unread} />
-          <NavBtn icon="🧠" label="Brain" active={tab === "brain"} onClick={() => setTab("brain")} />
-          <NavBtn icon="📅" label="Calendar" active={tab === "calendar"} onClick={() => setTab("calendar")} />
-        </nav>
-        <button
-          onClick={onLogout}
-          className="mt-6 rounded-lg px-3 py-2 text-left text-xs text-white/40 transition hover:bg-white/[0.04] hover:text-white/70"
-        >
-          Sign out
-        </button>
-      </aside>
-      <main className="flex-1 overflow-auto">
-        {/* Mobile header with address + compose */}
-        <div className="flex items-center justify-between gap-3 border-b border-white/5 p-4 sm:hidden">
-          <button onClick={copyAddress} className="min-w-0 truncate font-mono text-xs text-cyan-300">
+        <div className="relative mx-auto w-full max-w-2xl">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/30">⌕</span>
+          <input
+            type="search"
+            placeholder="Search mail"
+            value={searchQ}
+            onChange={(e) => {
+              setSearchQ(e.target.value);
+              if (!isMail) setView("inbox");
+            }}
+            className="block w-full rounded-full border border-white/10 bg-white/[0.05] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-white/35 transition focus:border-cyan-400/40 focus:bg-white/[0.07] focus:outline-none"
+          />
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={copyAddress}
+            title="Copy your address"
+            className="hidden max-w-[220px] truncate rounded-full border border-cyan-400/20 bg-cyan-500/[0.07] px-3.5 py-2 font-mono text-xs text-cyan-300 transition hover:border-cyan-400/50 md:block"
+          >
             {copied ? "Copied ✓" : inbox.address}
           </button>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={() => setCompose({})}
-              className="rounded-lg bg-gradient-to-r from-cyan-400 to-violet-500 px-3 py-2 text-xs font-semibold text-[#04070D]"
-            >
-              ✉ Compose
-            </button>
-            <button
-              onClick={onLogout}
-              title="Sign out"
-              className="rounded-lg border border-white/10 px-2.5 py-2 text-xs text-white/50 transition hover:text-white"
-            >
-              ⎋
-            </button>
-          </div>
+          <button
+            onClick={onLogout}
+            title="Sign out"
+            className="rounded-full border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:border-white/25 hover:text-white"
+          >
+            ⎋
+          </button>
         </div>
-        {tab === "brain" && <BrainTab />}
-        {tab === "inbox" && <InboxTab inbox={inbox} onCompose={(p) => setCompose(p ?? {})} />}
-        {tab === "calendar" && <CalendarTab />}
-        {/* Mobile bottom nav */}
-        <div className="fixed inset-x-0 bottom-0 flex border-t border-white/10 bg-[#070B14] sm:hidden">
-          {(["inbox", "brain", "calendar"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 py-3 text-xs font-medium capitalize ${tab === t ? "text-cyan-300" : "text-white/50"}`}
-            >
-              {t === "inbox" ? "📬" : t === "brain" ? "🧠" : "📅"} {t}
-            </button>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        {/* ── Left rail: compose + folders + apps ────────────────────── */}
+        <aside className="hidden w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-white/[0.07] bg-[#060A12] p-4 sm:flex">
+          <button
+            onClick={() => setCompose({})}
+            className="mb-4 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3.5 text-sm font-semibold text-[#04070D] shadow-[0_8px_24px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.7)]"
+          >
+            <span className="text-base leading-none">✎</span> Compose
+          </button>
+          {FOLDERS.map((f) => (
+            <RailBtn
+              key={f.key}
+              icon={f.icon}
+              label={f.label}
+              active={view === f.key}
+              onClick={() => { setView(f.key); setSearchQ(""); }}
+              badge={f.key === "inbox" ? inbox.unread : undefined}
+            />
           ))}
-        </div>
-      </main>
+          <div className="my-3 border-t border-white/[0.07]" />
+          <RailBtn icon="🧠" label="Brain" active={view === "brain"} onClick={() => setView("brain")} />
+          <RailBtn icon="📅" label="Calendar" active={view === "calendar"} onClick={() => setView("calendar")} />
+          <div className="my-3 border-t border-white/[0.07]" />
+          <RailBtn icon="🎭" label="Burners" active={view === "burners"} onClick={() => setView("burners")} />
+          <RailBtn icon="🤖" label="Agents" active={view === "agents"} onClick={() => setView("agents")} />
+        </aside>
+
+        {/* ── Main surface ───────────────────────────────────────────── */}
+        <main className="min-w-0 flex-1 overflow-y-auto pb-20 sm:pb-0">
+          {/* Mobile folder strip */}
+          {isMail && (
+            <div className="flex gap-1 overflow-x-auto border-b border-white/[0.07] p-2 sm:hidden">
+              {FOLDERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setView(f.key)}
+                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                    view === f.key
+                      ? "bg-gradient-to-r from-cyan-500/25 to-violet-500/20 text-white"
+                      : "text-white/50"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {isMail ? (
+            <MailView
+              inbox={inbox}
+              folder={view as api.Folder}
+              q={searchQ}
+              onCompose={(p) => setCompose(p ?? {})}
+              onCountsChanged={loadInboxes}
+            />
+          ) : view === "brain" ? (
+            <BrainTab />
+          ) : view === "burners" ? (
+            <BurnersView />
+          ) : view === "agents" ? (
+            <AgentsView />
+          ) : (
+            <CalendarTab />
+          )}
+        </main>
+      </div>
+
+      {/* Mobile bottom nav + FAB */}
+      <div className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#070B14] sm:hidden">
+        {([["inbox", "📬 Mail"], ["brain", "🧠 Brain"], ["calendar", "📅 Calendar"]] as const).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setView(k)}
+            className={`flex-1 py-3 text-xs font-medium ${
+              (k === "inbox" ? isMail : view === k) ? "text-cyan-300" : "text-white/50"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={() => setCompose({})}
+        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 text-xl text-[#04070D] shadow-[0_12px_32px_-8px_rgba(0,229,255,0.7)] sm:hidden"
+        title="Compose"
+      >
+        ✎
+      </button>
+
       {compose !== null && (
         <ComposeModal inbox={inbox} prefill={compose} onClose={() => setCompose(null)} />
       )}
     </div>
+  );
+}
+
+function RailBtn({
+  icon,
+  label,
+  active,
+  onClick,
+  badge,
+}: {
+  icon: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  badge?: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-3 rounded-full px-4 py-2 text-sm transition ${
+        active
+          ? "bg-gradient-to-r from-cyan-500/20 to-violet-500/10 font-semibold text-white shadow-[inset_0_0_0_1px_rgba(0,229,255,0.2)]"
+          : "text-white/60 hover:bg-white/[0.04] hover:text-white"
+      }`}
+    >
+      <span className="text-base">{icon}</span>
+      <span className="flex-1 text-left">{label}</span>
+      {badge ? (
+        <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">{badge}</span>
+      ) : null}
+    </button>
   );
 }
 
@@ -978,13 +1060,38 @@ function ClaimAddress({
 // ───────────────────────────────────────────────────────────────────────
 //  COMPOSE — send mail from your address
 // ───────────────────────────────────────────────────────────────────────
+const DESTRUCT_OPTIONS = [
+  { key: "off", label: "Normal" },
+  { key: "1h", label: "1 hour", hours: 1 },
+  { key: "24h", label: "24 hours", hours: 24 },
+  { key: "7d", label: "7 days", hours: 168 },
+  { key: "once", label: "View once" },
+] as const;
+
 function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?: ComposePrefill; onClose: () => void }) {
   const [to, setTo] = useState(prefill?.to ?? "");
   const [subject, setSubject] = useState(prefill?.subject ?? "");
   const [text, setText] = useState(prefill?.text ?? "");
+  const [files, setFiles] = useState<api.OutAttachment[]>([]);
+  const [destruct, setDestruct] = useState<(typeof DESTRUCT_OPTIONS)[number]["key"]>("off");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+
+  async function addFiles(list: FileList | null) {
+    if (!list) return;
+    setError("");
+    for (const f of Array.from(list)) {
+      if (f.size > 15 * 1024 * 1024) { setError(`${f.name} is over the 15 MB limit.`); continue; }
+      const dataBase64 = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(",")[1] ?? "");
+        r.onerror = () => rej(new Error("Read failed"));
+        r.readAsDataURL(f);
+      });
+      setFiles((prev) => [...prev, { filename: f.name, mime: f.type || "application/octet-stream", dataBase64 }]);
+    }
+  }
 
   const recipients = to.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
   const validTo = recipients.length > 0 && recipients.every((r) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r));
@@ -995,7 +1102,14 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
     setBusy(true);
     setError("");
     try {
-      await api.sendEmail({ inboxId: inbox.id, to: recipients, subject: subject.trim(), text });
+      const opt = DESTRUCT_OPTIONS.find((d) => d.key === destruct);
+      await api.sendEmail({
+        inboxId: inbox.id, to: recipients, subject: subject.trim(), text,
+        attachments: files.length ? files : undefined,
+        selfDestruct: destruct === "off" ? undefined
+          : destruct === "once" ? { viewOnce: true }
+          : { hours: (opt as { hours?: number }).hours },
+      });
       setSent(true);
       setTimeout(onClose, 1200);
     } catch (err: unknown) {
@@ -1007,14 +1121,15 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-end sm:justify-end sm:bg-transparent sm:p-6 sm:backdrop-blur-none"
       onClick={(e) => e.target === e.currentTarget && !busy && onClose()}
     >
-      <div className="w-full max-w-xl rounded-t-2xl border border-white/10 bg-[#0A0F1A] p-6 shadow-2xl sm:rounded-2xl">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight">New message</h2>
+      <div className="w-full max-w-xl rounded-t-2xl border border-white/10 bg-[#0A0F1A] shadow-[0_24px_80px_-12px_rgba(0,0,0,0.9)] sm:rounded-2xl">
+        <div className="flex items-center justify-between rounded-t-2xl bg-[#0D1322] px-5 py-3">
+          <h2 className="text-sm font-bold tracking-tight">New message</h2>
           <button onClick={onClose} disabled={busy} className="rounded-lg px-2 py-1 text-white/40 transition hover:bg-white/[0.06] hover:text-white">✕</button>
         </div>
+        <div className="p-5">
 
         <div className="space-y-3">
           <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
@@ -1044,6 +1159,38 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
           />
         </div>
 
+        {/* Attachments */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="cursor-pointer rounded-full border border-white/15 px-3.5 py-1.5 text-xs text-white/70 transition hover:border-cyan-400/50 hover:text-white">
+            📎 Attach files
+            <input type="file" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+          </label>
+          {files.map((f, i) => (
+            <span key={i} className="flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-xs text-white/80">
+              📄 {f.filename}
+              <button onClick={() => setFiles(files.filter((_, j) => j !== i))} className="text-white/40 hover:text-white">✕</button>
+            </span>
+          ))}
+        </div>
+
+        {/* Self-destruct */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs text-white/40">🔥 Self-destruct:</span>
+          {DESTRUCT_OPTIONS.map((d) => (
+            <button
+              key={d.key}
+              onClick={() => setDestruct(d.key)}
+              className={`rounded-full px-3 py-1 text-xs transition ${
+                destruct === d.key
+                  ? "bg-gradient-to-r from-orange-500/30 to-red-500/25 font-semibold text-orange-200 shadow-[inset_0_0_0_1px_rgba(251,146,60,0.4)]"
+                  : "text-white/45 hover:text-white"
+              }`}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+
         {error && (
           <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
         )}
@@ -1060,43 +1207,12 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
             {sent ? "Sent ✓" : busy ? "Sending..." : "Send"}
           </button>
         </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function NavBtn({
-  icon,
-  label,
-  active,
-  onClick,
-  badge,
-}: {
-  icon: string;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  badge?: number;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-        active
-          ? "bg-gradient-to-r from-cyan-500/15 to-violet-500/10 text-white shadow-[inset_0_0_0_1px_rgba(0,229,255,0.2)]"
-          : "text-white/60 hover:bg-white/[0.04] hover:text-white"
-      }`}
-    >
-      <span className="text-lg">{icon}</span>
-      <span className="flex-1 text-left">{label}</span>
-      {badge ? (
-        <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">{badge}</span>
-      ) : null}
-    </button>
-  );
-}
-
-// ─── Brain tab ────────────────────────────────────────────────────────
 function BrainTab() {
   const [briefing, setBriefing] = useState<Awaited<ReturnType<typeof api.brainBriefing>> | null>(null);
   const [health, setHealth] = useState<Awaited<ReturnType<typeof api.getInboxHealth>> | null>(null);
@@ -1266,20 +1382,30 @@ const FOLDERS: { key: api.Folder; label: string; icon: string }[] = [
   { key: "trash", label: "Trash", icon: "🗑" },
 ];
 
-function InboxTab({ inbox, onCompose }: { inbox: api.Inbox; onCompose: (p?: ComposePrefill) => void }) {
-  const [folder, setFolder] = useState<api.Folder>("inbox");
-  const [q, setQ] = useState("");
+function MailView({
+  inbox,
+  folder,
+  q,
+  onCompose,
+  onCountsChanged,
+}: {
+  inbox: api.Inbox;
+  folder: api.Folder;
+  q: string;
+  onCompose: (p?: ComposePrefill) => void;
+  onCountsChanged: () => void;
+}) {
   const [messages, setMessages] = useState<api.MessageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
-  async function load(f = folder, query = q) {
+  async function load() {
     setLoading(true);
     setError("");
     try {
-      const r = await api.listMessages(inbox.id, { folder: f, q: query || undefined });
+      const r = await api.listMessages(inbox.id, { folder, q: q || undefined });
       setMessages(r.messages);
     } catch (err: unknown) {
       setError((err as Error).message ?? "Couldn't load messages.");
@@ -1287,28 +1413,28 @@ function InboxTab({ inbox, onCompose }: { inbox: api.Inbox; onCompose: (p?: Comp
       setLoading(false);
     }
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inbox.id, folder]);
-
-  // Debounced search
+  // Reload when folder changes; debounce when searching
   useEffect(() => {
-    const t = setTimeout(() => load(folder, q), 300);
+    setOpenId(null);
+    const t = setTimeout(load, q ? 300 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+  }, [inbox.id, folder, q]);
 
   async function act(id: number, patch: Parameters<typeof api.updateMessage>[1]) {
     try {
       await api.updateMessage(id, patch);
       load();
+      onCountsChanged();
     } catch (err: unknown) {
       setError((err as Error).message ?? "Action failed.");
     }
   }
-
   async function destroy(id: number) {
     try {
       await api.deleteMessage(id);
       load();
+      onCountsChanged();
     } catch (err: unknown) {
       setError((err as Error).message ?? "Delete failed.");
     }
@@ -1316,9 +1442,10 @@ function InboxTab({ inbox, onCompose }: { inbox: api.Inbox; onCompose: (p?: Comp
 
   if (openId !== null) {
     return (
-      <MessageView
+      <ReadingPane
         id={openId}
-        onBack={() => { setOpenId(null); load(); }}
+        onBack={() => { setOpenId(null); load(); onCountsChanged(); }}
+        onAct={act}
         onReply={(m) =>
           onCompose({
             to: m.fromAddress,
@@ -1337,145 +1464,160 @@ function InboxTab({ inbox, onCompose }: { inbox: api.Inbox; onCompose: (p?: Comp
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-8 pb-24 sm:pb-8">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">📬 Mail</h1>
+    <div>
+      {/* Toolbar */}
+      <div className="flex h-12 items-center justify-between gap-3 border-b border-white/[0.07] px-4 sm:px-6">
+        <div className="text-sm font-semibold capitalize text-white/80">
+          {q ? `Results for “${q}”` : folder}
+          <span className="ml-2 text-xs font-normal text-white/35">{messages.length || ""}</span>
+        </div>
         <button
-          onClick={() => load()}
+          onClick={load}
           disabled={loading}
-          className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/60 transition hover:border-cyan-400/40 hover:text-white disabled:opacity-50"
+          title="Refresh"
+          className="rounded-full p-2 text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
         >
-          {loading ? "Refreshing..." : "↻ Refresh"}
+          ↻
         </button>
       </div>
 
-      {/* Folder tabs */}
-      <div className="mt-5 flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.02] p-1">
-        {FOLDERS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => { setFolder(f.key); setQ(""); }}
-            className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
-              folder === f.key
-                ? "bg-gradient-to-r from-cyan-500/20 to-violet-500/15 text-white shadow-[inset_0_0_0_1px_rgba(0,229,255,0.25)]"
-                : "text-white/50 hover:text-white"
-            }`}
-          >
-            {f.icon} {f.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <input
-        type="search"
-        placeholder={`Search ${folder}...`}
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        className="mt-3 block w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
-      />
-
       {error && (
-        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error} <button onClick={() => load()} className="underline">Retry</button>
+        <div className="m-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error} <button onClick={load} className="underline">Retry</button>
         </div>
       )}
 
-      <div className="mt-4 space-y-2">
-        {!loading && !error && messages.length === 0 && (
-          folder === "inbox" && !q ? (
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center">
-              <p className="text-white/60">Your inbox is live and listening.</p>
-              <button
-                onClick={() => {
-                  navigator.clipboard?.writeText(inbox.address);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1800);
-                }}
-                className="mt-3 inline-block rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 font-mono text-sm text-cyan-300 transition hover:border-cyan-400/50"
-              >
-                {copied ? "Copied ✓" : inbox.address}
-              </button>
-              <p className="mt-3 text-sm text-white/40">Send a test email here from any account — it lands in seconds.</p>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/40">
-              {q ? `Nothing matches “${q}”.` : `Nothing in ${folder}.`}
-            </div>
-          )
-        )}
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`group flex items-start gap-3 rounded-xl border p-4 transition hover:border-cyan-400/30 hover:bg-white/[0.04] ${
-              m.read === false ? "border-cyan-400/15 bg-cyan-500/[0.04]" : "border-white/10 bg-white/[0.02]"
-            }`}
-          >
-            {/* Star */}
+      {/* Message list — Gmail-dense rows */}
+      {!loading && !error && messages.length === 0 ? (
+        folder === "inbox" && !q ? (
+          <div className="mx-auto mt-16 max-w-sm px-6 text-center">
+            <div className="text-4xl">📭</div>
+            <p className="mt-4 text-white/60">Your inbox is live and listening.</p>
             <button
-              onClick={() => act(m.id, { starred: !m.starred })}
-              title={m.starred ? "Unstar" : "Star"}
-              className={`mt-0.5 shrink-0 text-base transition ${m.starred ? "" : "opacity-30 hover:opacity-100"}`}
+              onClick={() => {
+                navigator.clipboard?.writeText(inbox.address);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1800);
+              }}
+              className="mt-3 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 font-mono text-sm text-cyan-300 transition hover:border-cyan-400/50"
             >
-              {m.starred ? "⭐" : "☆"}
+              {copied ? "Copied ✓" : inbox.address}
             </button>
-            {/* Body — click to open */}
-            <button onClick={() => setOpenId(m.id)} className="min-w-0 flex-1 text-left">
-              <div className="flex items-baseline justify-between gap-3">
-                <strong className={`truncate ${m.read === false ? "text-white" : "text-white/80"}`}>
-                  {m.subject || "(no subject)"}
-                </strong>
-                <span className="shrink-0 text-xs text-white/40">{new Date(m.createdAt).toLocaleString()}</span>
-              </div>
-              <div className="mt-1 text-xs text-white/50">
-                {folder === "sent" ? `To ${(m.toAddresses ?? []).join(", ")}` : (m.fromAddress ?? m.from_address)}
-              </div>
-              {m.summary && <p className="mt-1.5 text-sm text-white/60 line-clamp-2">{m.summary}</p>}
-            </button>
-            {/* Row actions */}
-            <div className="flex shrink-0 flex-col gap-1.5 opacity-100 transition sm:flex-row sm:opacity-0 sm:group-hover:opacity-100">
-              {folder !== "archive" && folder !== "trash" && folder !== "sent" && (
-                <RowAction title="Archive" onClick={() => act(m.id, { folder: "archive" })}>🗄</RowAction>
-              )}
-              {folder !== "trash" ? (
-                <RowAction title="Move to trash" onClick={() => act(m.id, { folder: "trash" })}>🗑</RowAction>
-              ) : (
-                <>
-                  <RowAction title="Restore to inbox" onClick={() => act(m.id, { folder: "inbox" })}>↩</RowAction>
-                  <RowAction title="Delete forever" onClick={() => destroy(m.id)}>✕</RowAction>
-                </>
-              )}
-            </div>
+            <p className="mt-3 text-sm text-white/40">Mail sent here lands in seconds.</p>
           </div>
-        ))}
-      </div>
+        ) : (
+          <div className="mt-16 text-center text-white/40">
+            {q ? `Nothing matches “${q}”.` : `Nothing in ${folder}.`}
+          </div>
+        )
+      ) : (
+        <div className="divide-y divide-white/[0.05]">
+          {messages.map((m) => {
+            const unread = m.read === false;
+            const who = folder === "sent" ? `To: ${(m.toAddresses ?? []).join(", ")}` : displayName(m.fromAddress ?? m.from_address ?? "");
+            return (
+              <div
+                key={m.id}
+                className={`group relative flex cursor-pointer items-center gap-3 px-4 py-3 transition hover:z-10 hover:shadow-[0_1px_8px_rgba(0,229,255,0.12)] sm:px-6 ${
+                  unread ? "bg-cyan-500/[0.045]" : "hover:bg-white/[0.02]"
+                }`}
+                onClick={() => setOpenId(m.id)}
+              >
+                {unread && <span className="absolute left-0 top-0 h-full w-0.5 bg-gradient-to-b from-cyan-400 to-violet-500" />}
+                <button
+                  onClick={(e) => { e.stopPropagation(); act(m.id, { starred: !m.starred }); }}
+                  title={m.starred ? "Unstar" : "Star"}
+                  className={`shrink-0 text-base transition ${m.starred ? "text-amber-300" : "text-white/25 hover:text-white/70"}`}
+                >
+                  {m.starred ? "★" : "☆"}
+                </button>
+                {/* Desktop: sender | subject — snippet | date. Mobile: stacked */}
+                <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-3">
+                  <span className={`block truncate text-sm sm:w-44 sm:shrink-0 ${unread ? "font-bold text-white" : "text-white/70"}`}>
+                    {who}
+                  </span>
+                  <span className="block min-w-0 flex-1 truncate text-sm">
+                    {m.labels?.filter((l) => l.startsWith("via ")).map((l) => (
+                      <span key={l} className="mr-1.5 rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">{l}</span>
+                    ))}
+                    {m.hasAttachments && <span className="mr-1 text-white/45">📎</span>}
+                    <span className={unread ? "font-semibold text-white" : "text-white/75"}>{m.subject || "(no subject)"}</span>
+                    {m.summary && <span className="text-white/40"> — {m.summary}</span>}
+                  </span>
+                </div>
+                <span className={`shrink-0 text-xs ${unread ? "font-semibold text-cyan-300" : "text-white/40"} sm:group-hover:hidden`}>
+                  {relDate(m.createdAt)}
+                </span>
+                {/* Hover actions (desktop) */}
+                <div className="hidden shrink-0 items-center gap-1 sm:group-hover:flex">
+                  {folder !== "archive" && folder !== "trash" && folder !== "sent" && (
+                    <IconBtn title="Archive" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "archive" }); }}>🗄</IconBtn>
+                  )}
+                  {folder !== "trash" ? (
+                    <IconBtn title="Trash" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "trash" }); }}>🗑</IconBtn>
+                  ) : (
+                    <>
+                      <IconBtn title="Restore" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "inbox" }); }}>↩</IconBtn>
+                      <IconBtn title="Delete forever" onClick={(e) => { e.stopPropagation(); destroy(m.id); }}>✕</IconBtn>
+                    </>
+                  )}
+                  <IconBtn
+                    title={unread ? "Mark read" : "Mark unread"}
+                    onClick={(e) => { e.stopPropagation(); act(m.id, { read: unread }); }}
+                  >
+                    {unread ? "◉" : "◯"}
+                  </IconBtn>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function RowAction({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+function displayName(addr: string) {
+  const m = addr.match(/^(.*?)\s*<.*>$/);
+  if (m && m[1]) return m[1].trim();
+  return addr.split("@")[0] || addr;
+}
+
+function relDate(iso: string) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (d.getFullYear() === now.getFullYear()) return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  return d.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+}
+
+function IconBtn({ title, onClick, children }: { title: string; onClick: (e: React.MouseEvent) => void; children: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className="rounded-lg border border-white/10 px-2 py-1 text-sm text-white/60 transition hover:border-cyan-400/40 hover:text-white"
+      className="rounded-full p-1.5 text-sm text-white/50 transition hover:bg-white/[0.08] hover:text-white"
     >
       {children}
     </button>
   );
 }
 
-// ─── Message reading view ─────────────────────────────────────────────
+// ─── Reading pane — Gmail-style message view ──────────────────────────
 type FullMessage = Awaited<ReturnType<typeof api.getMessage>>["message"];
 
-function MessageView({
+function ReadingPane({
   id,
   onBack,
+  onAct,
   onReply,
   onForward,
 }: {
   id: number;
   onBack: () => void;
+  onAct: (id: number, patch: Parameters<typeof api.updateMessage>[1]) => Promise<void>;
   onReply: (m: FullMessage) => void;
   onForward: (m: FullMessage) => void;
 }) {
@@ -1488,17 +1630,6 @@ function MessageView({
       .catch((err: unknown) => setError((err as Error).message ?? "Couldn't open this message."));
   }, [id]);
 
-  async function move(folder: "archive" | "trash") {
-    try {
-      await api.updateMessage(id, { folder });
-      onBack();
-    } catch (err: unknown) {
-      setError((err as Error).message ?? "Action failed.");
-    }
-  }
-
-  // Plain-text first; if the email is HTML-only, strip tags rather than
-  // rendering untrusted markup (no tracking pixels, no script surface).
   const body =
     msg?.textBody ??
     (msg?.htmlBody
@@ -1515,55 +1646,305 @@ function MessageView({
           .trim()
       : null);
 
+  const initial = (displayName(msg?.fromAddress ?? "?")[0] || "?").toUpperCase();
+
   return (
-    <div className="mx-auto max-w-3xl p-8 pb-24 sm:pb-8">
-      <button onClick={onBack} className="mb-6 text-sm text-white/50 transition hover:text-cyan-300">
-        ← Back
-      </button>
+    <div>
+      {/* Toolbar */}
+      <div className="flex h-12 items-center gap-1 border-b border-white/[0.07] px-3 sm:px-5">
+        <IconBtn title="Back" onClick={onBack}>←</IconBtn>
+        <IconBtn title="Archive" onClick={async () => { await onAct(id, { folder: "archive" }); onBack(); }}>🗄</IconBtn>
+        <IconBtn title="Trash" onClick={async () => { await onAct(id, { folder: "trash" }); onBack(); }}>🗑</IconBtn>
+        <IconBtn title="Mark unread" onClick={async () => { await onAct(id, { read: false }); onBack(); }}>◉</IconBtn>
+      </div>
+
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
+        <div className="m-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>
       )}
-      {!msg && !error && <div className="text-white/40">Opening...</div>}
+      {!msg && !error && <div className="p-8 text-white/40">Opening...</div>}
       {msg && (
-        <article className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-          <h1 className="text-2xl font-bold tracking-tight">{msg.subject || "(no subject)"}</h1>
-          <div className="mt-3 space-y-1 border-b border-white/10 pb-4 text-sm">
-            <div className="text-white/70">From <span className="font-mono text-cyan-300">{msg.fromAddress}</span></div>
-            <div className="text-white/50">To {msg.toAddresses.join(", ")}</div>
-            <div className="text-xs text-white/40">{new Date(msg.sentAt ?? msg.createdAt).toLocaleString()}</div>
+        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
+          <h1 className="text-[1.4rem] font-semibold leading-snug tracking-tight">{msg.subject || "(no subject)"}</h1>
+
+          {/* Sender card */}
+          <div className="mt-5 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 font-semibold text-[#04070D]">
+              {initial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <strong className="text-[15px] text-white">{displayName(msg.fromAddress)}</strong>
+                <span className="truncate font-mono text-xs text-white/40">{msg.fromAddress.replace(/^.*</, "<")}</span>
+              </div>
+              <div className="text-xs text-white/45">to {msg.toAddresses.join(", ")}</div>
+            </div>
+            <span className="shrink-0 text-xs text-white/40">{new Date(msg.sentAt ?? msg.createdAt).toLocaleString()}</span>
           </div>
-          <div className="mt-5 whitespace-pre-wrap text-[15px] leading-relaxed text-white/85">
+
+          {msg.viewOnce && (
+            <div className="mt-4 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2.5 text-sm text-orange-200">
+              🔥 View-once message — it burns when you leave this screen.
+            </div>
+          )}
+          {msg.expiresAt && !msg.viewOnce && (
+            <div className="mt-4 rounded-xl border border-orange-500/20 bg-orange-500/[0.06] px-4 py-2.5 text-xs text-orange-200/80">
+              🔥 Self-destructs {new Date(msg.expiresAt).toLocaleString()}
+            </div>
+          )}
+
+          {/* Body */}
+          <div className="mt-6 whitespace-pre-wrap text-[15px] leading-relaxed text-white/90">
             {body ?? <span className="text-white/40">(empty message)</span>}
           </div>
-          {/* Actions */}
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-5">
+
+          {/* Attachments */}
+          {(msg.attachments?.length ?? 0) > 0 && (
+            <div className="mt-6 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+              {msg.attachments!.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => api.downloadAttachment(a.id, a.filename).catch(() => setError("Download failed."))}
+                  className="flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm text-white/85 transition hover:border-cyan-400/50 hover:text-white"
+                >
+                  📄 {a.filename}
+                  <span className="text-xs text-white/40">{(a.size / 1024).toFixed(0)} KB</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Reply / Forward */}
+          <div className="mt-8 flex gap-2">
             <button
               onClick={() => onReply(msg)}
-              className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-2.5 text-sm font-semibold text-[#04070D] transition hover:shadow-[0_8px_24px_-8px_rgba(0,229,255,0.6)]"
+              className="rounded-full border border-white/15 px-6 py-2.5 text-sm font-medium text-white/85 transition hover:border-cyan-400/50 hover:text-white"
             >
               ↩ Reply
             </button>
             <button
               onClick={() => onForward(msg)}
-              className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-white/70 transition hover:border-cyan-400/40 hover:text-white"
+              className="rounded-full border border-white/15 px-6 py-2.5 text-sm font-medium text-white/85 transition hover:border-cyan-400/50 hover:text-white"
             >
               ⤳ Forward
             </button>
-            <button
-              onClick={() => move("archive")}
-              className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-white/70 transition hover:border-cyan-400/40 hover:text-white"
-            >
-              🗄 Archive
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Burners: disposable addresses ────────────────────────────────────
+function BurnersView() {
+  const [burners, setBurners] = useState<api.Burner[]>([]);
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const load = () => api.listBurners().then((r) => setBurners(r.burners)).catch((e: Error) => setError(e.message));
+  useEffect(() => { load(); }, []);
+
+  async function create() {
+    setBusy(true);
+    setError("");
+    try {
+      await api.createBurner(label.trim() || undefined);
+      setLabel("");
+      load();
+    } catch (e: unknown) {
+      setError((e as Error).message ?? "Couldn't create burner.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copy(b: api.Burner) {
+    navigator.clipboard?.writeText(b.address);
+    setCopiedId(b.id);
+    setTimeout(() => setCopiedId(null), 1500);
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl p-6 sm:p-8">
+      <h1 className="text-2xl font-bold tracking-tight">🎭 Burner addresses</h1>
+      <p className="mt-2 text-sm text-white/55">
+        Disposable addresses that forward to your inbox. Give them to newsletters,
+        sign-ups, anyone you don&apos;t fully trust — kill one and its mail bounces forever.
+      </p>
+
+      <div className="mt-6 flex gap-2">
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && create()}
+          placeholder="Label (e.g. “newsletter sign-ups”) — optional"
+          className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm placeholder:text-white/30 focus:border-cyan-400/50 focus:outline-none"
+        />
+        <button
+          onClick={create}
+          disabled={busy}
+          className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#04070D] disabled:opacity-50"
+        >
+          {busy ? "..." : "+ New burner"}
+        </button>
+      </div>
+
+      {error && <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
+
+      <div className="mt-6 space-y-2">
+        {burners.length === 0 && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/40">
+            No burners yet. Create one and watch the spam stay out of your real inbox.
+          </div>
+        )}
+        {burners.map((b) => (
+          <div key={b.id} className={`flex flex-wrap items-center gap-3 rounded-xl border p-4 ${b.active ? "border-white/10 bg-white/[0.02]" : "border-white/5 bg-white/[0.01] opacity-60"}`}>
+            <button onClick={() => copy(b)} className="font-mono text-sm text-cyan-300 transition hover:text-cyan-200">
+              {copiedId === b.id ? "Copied ✓" : b.address}
             </button>
+            {b.label && <span className="text-xs text-white/45">{b.label}</span>}
+            <span className={`ml-auto rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${b.active ? "bg-emerald-500/15 text-emerald-300" : "bg-white/[0.06] text-white/40"}`}>
+              {b.active ? "Active" : "Killed"}
+            </span>
             <button
-              onClick={() => move("trash")}
-              className="rounded-xl border border-white/10 px-5 py-2.5 text-sm text-white/70 transition hover:border-red-400/40 hover:text-red-300"
+              onClick={() => api.setBurnerActive(b.id, !b.active).then(load)}
+              className={`rounded-full border px-4 py-1.5 text-xs transition ${b.active ? "border-red-400/30 text-red-300 hover:border-red-400/70" : "border-white/15 text-white/60 hover:border-cyan-400/50 hover:text-white"}`}
             >
-              🗑 Trash
+              {b.active ? "Kill" : "Revive"}
             </button>
           </div>
-        </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Agents: AI citizens with their own address + API key ─────────────
+function AgentsView() {
+  const [agents, setAgents] = useState<api.Agent[]>([]);
+  const [name, setName] = useState("");
+  const [handle, setHandle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [newKey, setNewKey] = useState<{ key: string; address: string } | null>(null);
+  const [keyCopied, setKeyCopied] = useState(false);
+
+  const load = () => api.listAgents().then((r) => setAgents(r.agents)).catch((e: Error) => setError(e.message));
+  useEffect(() => { load(); }, []);
+
+  async function create() {
+    if (!name.trim() || !handle.trim()) { setError("Give your agent a name and a handle."); return; }
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.createAgent(name.trim(), handle.trim());
+      setNewKey({ key: r.apiKey, address: r.agent.address });
+      setName("");
+      setHandle("");
+      load();
+    } catch (e: unknown) {
+      setError((e as Error).message ?? "Couldn't create agent.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE || "https://api.cybrmail.net";
+
+  return (
+    <div className="mx-auto max-w-3xl p-6 sm:p-8">
+      <h1 className="text-2xl font-bold tracking-tight">🤖 AI Agents</h1>
+      <p className="mt-2 text-sm text-white/55">
+        Give any AI agent its own @cybrmail.net address and API key. Agents send,
+        read, and reply to mail programmatically — email becomes their interface.
+      </p>
+
+      <div className="mt-6 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Agent name (e.g. “Research Bot”)"
+          className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm placeholder:text-white/30 focus:border-cyan-400/50 focus:outline-none"
+        />
+        <div className="flex items-stretch overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] focus-within:border-cyan-400/50">
+          <input
+            value={handle}
+            onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, "").slice(0, 30))}
+            placeholder="handle"
+            className="min-w-0 flex-1 bg-transparent px-4 py-3 font-mono text-sm placeholder:text-white/25 focus:outline-none"
+          />
+          <span className="flex select-none items-center border-l border-white/10 px-3 font-mono text-xs text-cyan-300/70">@cybrmail.net</span>
+        </div>
+        <button
+          onClick={create}
+          disabled={busy}
+          className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#04070D] disabled:opacity-50"
+        >
+          {busy ? "..." : "+ Create agent"}
+        </button>
+      </div>
+
+      {error && <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
+
+      {newKey && (
+        <div className="mt-4 rounded-xl border border-cyan-400/30 bg-cyan-500/[0.07] p-5">
+          <div className="text-sm font-semibold text-white">🔑 API key for {newKey.address}</div>
+          <p className="mt-1 text-xs text-amber-300/90">Shown once — copy it now. Only a hash is stored.</p>
+          <div className="mt-3 flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-lg bg-black/40 px-3 py-2.5 font-mono text-xs text-cyan-200">{newKey.key}</code>
+            <button
+              onClick={() => { navigator.clipboard?.writeText(newKey.key); setKeyCopied(true); setTimeout(() => setKeyCopied(false), 1500); }}
+              className="shrink-0 rounded-lg border border-cyan-400/40 px-4 py-2.5 text-xs text-cyan-200 transition hover:bg-cyan-500/15"
+            >
+              {keyCopied ? "Copied ✓" : "Copy"}
+            </button>
+          </div>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-xs text-white/50 hover:text-white/80">Show your agent how to use it</summary>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-black/40 p-3 text-[11px] leading-relaxed text-white/70">{`# Send mail as the agent
+curl -X POST ${apiBase}/api/send \\
+  -H "Authorization: Bearer ${newKey.key.slice(0, 12)}..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"inboxId": <inboxId>, "to": ["someone@cybrmail.net"],
+       "subject": "Hello", "text": "Sent by an agent."}'
+
+# Read its inbox
+curl ${apiBase}/api/inboxes/<inboxId>/messages \\
+  -H "Authorization: Bearer ${newKey.key.slice(0, 12)}..."
+
+# Who am I
+curl ${apiBase}/api/agent/me -H "Authorization: Bearer ..."`}</pre>
+          </details>
+          <button onClick={() => setNewKey(null)} className="mt-3 text-xs text-white/40 hover:text-white/70">Dismiss</button>
+        </div>
       )}
+
+      <div className="mt-6 space-y-2">
+        {agents.length === 0 && !newKey && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/40">
+            No agents yet. Create one and let your AI handle the mail.
+          </div>
+        )}
+        {agents.map((a) => (
+          <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 text-sm font-bold text-[#04070D]">
+              {a.name[0]?.toUpperCase() ?? "A"}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-white">{a.name}</div>
+              <div className="truncate font-mono text-xs text-cyan-300/80">{a.address}</div>
+            </div>
+            <span className="ml-auto font-mono text-[10px] text-white/30">{a.keyPrefix}…</span>
+            <button
+              onClick={() => api.deleteAgent(a.id).then(load)}
+              className="rounded-full border border-red-400/30 px-4 py-1.5 text-xs text-red-300 transition hover:border-red-400/70"
+            >
+              Revoke key
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
