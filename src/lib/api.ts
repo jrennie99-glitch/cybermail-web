@@ -201,6 +201,16 @@ export async function downloadAttachment(id: number, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+// ─── Demo mode ───
+export const demoLogin = async () => {
+  const r = await request<{ token: string; user: unknown; address: string }>("/api/demo", {
+    method: "POST",
+    noAuth: true,
+  });
+  if (r.token) setToken(r.token);
+  return r;
+};
+
 // ─── Assistant ───
 export interface AssistantAction { tool: string; input?: Record<string, unknown>; ok: boolean; error?: string }
 export const assistantChat = (messages: { role: "user" | "assistant"; content: string }[]) =>

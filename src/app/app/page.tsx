@@ -520,6 +520,25 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
           )}
         </p>
 
+          <button
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                await api.demoLogin();
+                onSignedIn(false);
+              } catch (e: unknown) {
+                setError((e as Error).message ?? "Demo unavailable right now.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            disabled={busy}
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/[0.08] px-5 py-3.5 text-sm font-semibold text-violet-200 transition hover:border-violet-400/60 hover:bg-violet-500/15 disabled:opacity-50"
+          >
+            ▶ Try the live demo — no signup
+          </button>
+
           <p className="mt-8 text-center text-[11px] text-white/30">
             By continuing you agree to our{" "}
             <a
