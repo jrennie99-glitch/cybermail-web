@@ -1382,6 +1382,22 @@ const FOLDERS: { key: api.Folder; label: string; icon: string }[] = [
   { key: "trash", label: "Trash", icon: "🗑" },
 ];
 
+// ─── Read-aloud (browser speech synthesis — free, on-device) ──────────
+const AUTOREAD_KEY = "cybermail_autoread";
+
+function getAutoRead(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(AUTOREAD_KEY) === "1";
+}
+function setAutoReadPref(v: boolean) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTOREAD_KEY, v ? "1" : "0");
+}
+
+function speechText(from: string, subject: string | null, body: string | null) {
+  return `Message from ${displayName(from)}. Subject: ${subject || "no subject"}. ${body || "The message is empty."}`;
+}
+
 function MailView({
   inbox,
   folder,
@@ -1400,6 +1416,8 @@ function MailView({
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [autoRead, setAutoRead] = useState(false);
+  useEffect(() => { setAutoRead(getAutoRead()); }, []);
 
   async function load() {
     setLoading(true);
@@ -1471,14 +1489,27 @@ function MailView({
           {q ? `Results for “${q}”` : folder}
           <span className="ml-2 text-xs font-normal text-white/35">{messages.length || ""}</span>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          title="Refresh"
-          className="rounded-full p-2 text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
-        >
-          ↻
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => { const v = !autoRead; setAutoRead(v); setAutoReadPref(v); if (!v) window.speechSynthesis?.cancel(); }}
+            title={autoRead ? "Auto-read is ON — messages are read aloud when opened" : "Auto-read is OFF"}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition ${
+              autoRead
+                ? "bg-gradient-to-r from-cyan-500/25 to-violet-500/20 font-semibold text-cyan-200 shadow-[inset_0_0_0_1px_rgba(0,229,255,0.3)]"
+                : "text-white/45 hover:bg-white/[0.06] hover:text-white"
+            }`}
+          >
+            🔊 Auto-read {autoRead ? "on" : "off"}
+          </button>
+          <button
+            onClick={load}
+            disabled={loading}
+            title="Refresh"
+            className="rounded-full p-2 text-white/50 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+          >
+            ↻
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -1623,12 +1654,36 @@ function ReadingPane({
 }) {
   const [msg, setMsg] = useState<FullMessage | null>(null);
   const [error, setError] = useState("");
+  const [speech, setSpeech] = useState<"idle" | "playing" | "paused">("idle");
 
   useEffect(() => {
     api.getMessage(id)
       .then((r) => setMsg(r.message))
       .catch((err: unknown) => setError((err as Error).message ?? "Couldn't open this message."));
   }, [id]);
+
+  // Stop speaking when leaving the message
+  useEffect(() => () => { window.speechSynthesis?.cancel(); }, [id]);
+
+  function startSpeaking(m: FullMessage, spokenBody: string | null) {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(speechText(m.fromAddress, m.subject, spokenBody));
+    u.rate = 1.02;
+    u.onend = () => setSpeech("idle");
+    u.onerror = () => setSpeech("idle");
+    synth.speak(u);
+    setSpeech("playing");
+  }
+
+  function toggleSpeech(m: FullMessage, spokenBody: string | null) {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    if (speech === "playing") { synth.pause(); setSpeech("paused"); }
+    else if (speech === "paused") { synth.resume(); setSpeech("playing"); }
+    else startSpeaking(m, spokenBody);
+  }
 
   const body =
     msg?.textBody ??
@@ -1647,6 +1702,13 @@ function ReadingPane({
       : null);
 
   const initial = (displayName(msg?.fromAddress ?? "?")[0] || "?").toUpperCase();
+
+  // Auto-read on open (after the message and body are ready)
+  const autoTriggered = typeof window !== "undefined" && getAutoRead();
+  useEffect(() => {
+    if (msg && autoTriggered) startSpeaking(msg, body);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [msg]);
 
   return (
     <div>
@@ -1679,6 +1741,26 @@ function ReadingPane({
               <div className="text-xs text-white/45">to {msg.toAddresses.join(", ")}</div>
             </div>
             <span className="shrink-0 text-xs text-white/40">{new Date(msg.sentAt ?? msg.createdAt).toLocaleString()}</span>
+            <button
+              onClick={() => toggleSpeech(msg, body)}
+              title={speech === "playing" ? "Pause reading" : "Read this email aloud"}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
+                speech !== "idle"
+                  ? "bg-gradient-to-r from-cyan-400 to-violet-500 text-[#04070D] shadow-[0_4px_16px_-4px_rgba(0,229,255,0.6)]"
+                  : "border border-white/15 text-white/70 hover:border-cyan-400/50 hover:text-white"
+              }`}
+            >
+              {speech === "playing" ? "❚❚" : "▶"}
+            </button>
+            {speech !== "idle" && (
+              <button
+                onClick={() => { window.speechSynthesis?.cancel(); setSpeech("idle"); }}
+                title="Stop"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 transition hover:border-red-400/50 hover:text-red-300"
+              >
+                ■
+              </button>
+            )}
           </div>
 
           {msg.viewOnce && (
