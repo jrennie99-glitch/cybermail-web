@@ -120,9 +120,14 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
     if (typeof window !== "undefined")
       setHasWallet(!!(window as { ethereum?: unknown }).ethereum);
     api.getAuthProviders().then(setProviders).catch(() => {});
-    api.healthCheck().then(setHealth);
-    const iv = setInterval(() => api.healthCheck().then(setHealth), 15000);
-    return () => clearInterval(iv);
+    let stopped = false;
+    const tick = () => api.healthCheck().then((h) => {
+      if (stopped) return;
+      setHealth(h);
+      if (!h.reachable) setTimeout(tick, 20000); // keep retrying only while down
+    });
+    tick();
+    return () => { stopped = true; };
   }, []);
 
   const cleanedHandle = handle.toLowerCase().replace(/[^a-z0-9.]/g, "");
@@ -152,7 +157,7 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
       } catch {
         if (!stale) setHandleStatus(null);
       }
-    }, 350);
+    }, 700);
     return () => { stale = true; clearTimeout(t); };
   }, [mode, signupPath, cleanedHandle]);
 
@@ -972,7 +977,7 @@ function ClaimAddress({
       } catch {
         if (!stale) setStatus(null); // backend missing the endpoint — claim still does a final check
       }
-    }, 350);
+    }, 700);
     return () => { stale = true; clearTimeout(t); };
   }, [cleaned]);
 

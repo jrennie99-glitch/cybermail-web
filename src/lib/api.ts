@@ -56,6 +56,17 @@ async function request<T = unknown>(path: string, opts: RequestOpts = {}): Promi
   });
   let data: unknown = {};
   try { data = await res.json(); } catch {}
+  if (res.status === 429) {
+    // Edge rate-limit (e.g. Cloudflare). Wait and retry once before failing.
+    await new Promise((r) => setTimeout(r, 1500));
+    const retry = await fetch(`${API_BASE}${path}`, {
+      method: opts.method ?? "GET",
+      headers,
+      body: opts.body != null ? JSON.stringify(opts.body) : undefined,
+    });
+    if (retry.ok) return retry.json() as Promise<T>;
+    throw Object.assign(new Error("The server's edge protection is throttling requests (HTTP 429). Wait a few seconds and try again — and if this keeps happening, turn off Cloudflare proxying/Bot Fight Mode for api.cybrmail.net."), { status: 429 });
+  }
   if (!res.ok) {
     throw new ApiError((data as { error?: string })?.error ?? `HTTP ${res.status}`, res.status, data);
   }
