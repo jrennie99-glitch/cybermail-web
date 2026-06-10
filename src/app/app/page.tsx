@@ -29,6 +29,16 @@ export default function AppPage() {
       }
     }
     (async () => {
+      // Marketing funnel: /app?demo=1 drops straight into a seeded demo account
+      if (!api.hasToken() && typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("demo") === "1") {
+          try {
+            await api.demoLogin();
+            window.history.replaceState({}, "", window.location.pathname);
+          } catch { /* fall through to auth */ }
+        }
+      }
       if (!api.hasToken()) {
         setView("auth");
         return;
