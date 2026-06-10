@@ -862,14 +862,15 @@ function Shell({ onLogout }: { onLogout: () => void }) {
 
       {/* Mobile bottom nav + FAB */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#070B14] sm:hidden">
-        {([["inbox", "Mail"], ["assistant", "Assist"], ["brain", "Brain"], ["calendar", "Calendar"]] as const).map(([k, label]) => (
+        {([["inbox", "📬", "Inbox"], ["brain", "🧠", "Brain"], ["calendar", "📅", "Calendar"], ["assistant", "✏️", "Compose"], ["burners", "⚙️", "Settings"]] as const).map(([k, emoji, label]) => (
           <button
             key={k}
             onClick={() => setView(k)}
-            className={`flex-1 py-3 text-xs font-medium ${
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium ${
               (k === "inbox" ? isMail : view === k) ? "text-cyan-300" : "text-white/50"
             }`}
           >
+            <span className="text-xl leading-none">{emoji}</span>
             {label}
           </button>
         ))}
@@ -1292,16 +1293,24 @@ function BrainTab() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-8">
-      <h1 className="flex items-center gap-2.5 text-3xl font-bold tracking-tight"><Brain size={26} className="text-cyan-300" /> Brain</h1>
+    <div className="mx-auto max-w-3xl p-5 sm:p-8">
+      <h1 className="text-center text-2xl font-bold tracking-tight">🧠 CyberBrain</h1>
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-5 rounded-3xl border border-cyan-500/40 px-6 py-8 text-center">
+        <div className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Since yesterday</div>
+        <div className="mt-2 text-6xl font-extrabold text-white">{briefing?.newMessageCount ?? 0}</div>
+        <div className="mt-1 text-base text-slate-400">new emails</div>
+      </div>
+
+      <div className="mt-5 rounded-3xl border border-violet-500/60 px-5 py-4">
+        <div className="text-xs font-bold uppercase tracking-[0.2em] text-violet-400">Ask CyberBrain</div>
+        <div className="mt-2 flex gap-2">
         <input
           value={askQ}
           onChange={(e) => setAskQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && ask()}
-          placeholder="Ask your inbox anything..."
-          className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm placeholder:text-white/30 focus:border-cyan-400/50 focus:outline-none"
+          placeholder="Search your inbox by meaning..."
+          className="flex-1 bg-transparent text-base placeholder:text-white/70 focus:outline-none"
         />
         <button
           onClick={ask}
@@ -1310,6 +1319,7 @@ function BrainTab() {
         >
           {asking ? "..." : "Ask"}
         </button>
+        </div>
       </div>
 
       {askErr && (
@@ -1600,57 +1610,53 @@ function MailView({
             return (
               <div
                 key={m.id}
-                className={`group relative flex cursor-pointer items-center gap-3 px-4 py-3 transition hover:z-10 hover:shadow-[0_1px_8px_rgba(0,229,255,0.12)] sm:px-6 ${
-                  unread ? "bg-cyan-500/[0.045]" : "hover:bg-white/[0.02]"
-                }`}
+                className="group relative cursor-pointer px-4 py-3.5 transition hover:bg-white/[0.03] sm:px-6"
                 onClick={() => setOpenId(m.id)}
               >
-                {unread && <span className="absolute left-0 top-0 h-full w-0.5 bg-gradient-to-b from-cyan-400 to-violet-500" />}
-                <button
-                  onClick={(e) => { e.stopPropagation(); act(m.id, { starred: !m.starred }); }}
-                  title={m.starred ? "Unstar" : "Star"}
-                  className={`shrink-0 text-base transition ${m.starred ? "text-amber-300" : "text-white/25 hover:text-white/70"}`}
-                >
-                  <Star size={17} fill={m.starred ? "currentColor" : "none"} />
-                </button>
-                <Avatar name={who} seed={m.fromAddress ?? m.from_address ?? ""} />
-                {/* Desktop: sender | subject — snippet | date. Mobile: stacked */}
-                <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-3">
-                  <span className={`block truncate text-sm sm:w-44 sm:shrink-0 ${unread ? "font-bold text-white" : "text-white/70"}`}>
+                <div className="flex items-center gap-2.5">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${unread ? "bg-slate-300" : "bg-transparent"}`} />
+                  <span className={`min-w-0 flex-1 truncate text-[17px] ${unread ? "font-bold text-white" : "font-semibold text-white/80"}`}>
                     {who}
                   </span>
-                  <span className="block min-w-0 flex-1 truncate text-sm">
+                  <span className="shrink-0 text-sm text-slate-400">{new Date(m.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div className="mt-0.5 pl-[18px]">
+                  <div className="truncate text-[15px] text-slate-300">
                     {m.labels?.filter((l) => l.startsWith("via ")).map((l) => (
                       <span key={l} className="mr-1.5 rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">{l}</span>
                     ))}
-                    {m.hasAttachments && <Paperclip size={13} className="mr-1 inline text-white/45" />}
-                    <span className={unread ? "font-semibold text-white" : "text-white/75"}>{m.subject || "(no subject)"}</span>
-                    {m.summary && <span className="text-white/40"> — {m.summary}</span>}
-                  </span>
-                </div>
-                <span className={`shrink-0 text-xs ${unread ? "font-semibold text-cyan-300" : "text-white/40"} sm:group-hover:hidden`}>
-                  {relDate(m.createdAt)}
-                </span>
-                {/* Hover actions (desktop) */}
-                <div className="hidden shrink-0 items-center gap-1 sm:group-hover:flex">
-                  {folder !== "archive" && folder !== "trash" && folder !== "sent" && (
-                    <IconBtn title="Archive" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "archive" }); }}><Archive size={16} /></IconBtn>
+                    {m.hasAttachments && <span className="mr-1">📎</span>}
+                    {m.subject || "(no subject)"}
+                  </div>
+                  {m.summary && (
+                    <div className="mt-0.5 line-clamp-2 text-[14px] leading-snug text-slate-400/80">{m.summary}</div>
                   )}
-                  {folder !== "trash" ? (
-                    <IconBtn title="Trash" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "trash" }); }}><Trash2 size={16} /></IconBtn>
-                  ) : (
-                    <>
-                      <IconBtn title="Restore" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "inbox" }); }}><Undo2 size={16} /></IconBtn>
-                      <IconBtn title="Delete forever" onClick={(e) => { e.stopPropagation(); destroy(m.id); }}><X size={16} /></IconBtn>
-                    </>
-                  )}
-                  <IconBtn
-                    title={unread ? "Mark read" : "Mark unread"}
-                    onClick={(e) => { e.stopPropagation(); act(m.id, { read: unread }); }}
-                  >
-                    {unread ? <MailOpen size={16} /> : <Mail size={16} />}
-                  </IconBtn>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="rounded-full bg-slate-700/40 px-2.5 py-1 text-xs text-slate-300">✉️ Other</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); act(m.id, { starred: !m.starred }); }}
+                      className={`rounded-full px-2 py-1 text-xs ${m.starred ? "text-amber-300" : "text-slate-500 hover:text-slate-300"}`}
+                    >{m.starred ? "★ Starred" : "☆"}</button>
+                    <span className="flex-1" />
+                    <span className="hidden items-center gap-1 sm:group-hover:flex">
+                      {folder !== "archive" && folder !== "trash" && folder !== "sent" && (
+                        <IconBtn title="Archive" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "archive" }); }}><Archive size={15} /></IconBtn>
+                      )}
+                      {folder !== "trash" ? (
+                        <IconBtn title="Trash" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "trash" }); }}><Trash2 size={15} /></IconBtn>
+                      ) : (
+                        <>
+                          <IconBtn title="Restore" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "inbox" }); }}><Undo2 size={15} /></IconBtn>
+                          <IconBtn title="Delete forever" onClick={(e) => { e.stopPropagation(); destroy(m.id); }}><X size={15} /></IconBtn>
+                        </>
+                      )}
+                      <IconBtn title={unread ? "Mark read" : "Mark unread"} onClick={(e) => { e.stopPropagation(); act(m.id, { read: unread }); }}>
+                        {unread ? <MailOpen size={15} /> : <Mail size={15} />}
+                      </IconBtn>
+                    </span>
+                  </div>
                 </div>
+                <div className="absolute inset-x-4 bottom-0 h-px bg-slate-700/30 sm:inset-x-6" />
               </div>
             );
           })}
