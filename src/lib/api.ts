@@ -134,6 +134,14 @@ export const createInbox = (username: string) =>
     method: "POST",
     body: { username, address: `${username}@cybrmail.net` },
   });
+
+// ─── Custom domains (Phase 4: business email) ───
+export interface DnsRecord { type: string; host: string; value: string; purpose?: string }
+export interface Domain { id: number; domain: string; status: "pending" | "verified" | "failed"; dnsRecords: DnsRecord[]; createdAt: string; verifiedAt: string | null }
+export const listDomains = () => request<{ domains: Domain[] }>("/api/domains");
+export const addDomain = (domain: string) => request<{ domain: Domain }>("/api/domains", { method: "POST", body: { domain } });
+export const verifyDomain = (id: number) => request<{ domain: Domain }>(`/api/domains/${id}/verify`, { method: "POST" });
+export const deleteDomain = (id: number) => request<{ ok: true }>(`/api/domains/${id}`, { method: "DELETE" });
 export type Folder = "inbox" | "starred" | "sent" | "archive" | "trash";
 
 export interface MessageSummary {

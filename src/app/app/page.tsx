@@ -1172,6 +1172,12 @@ function SettingsView({
         </button>
       </section>
 
+      <section className="mt-8">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-white/90"><AtSign size={16} className="text-cyan-300" /> Custom domains <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">Business</span></h2>
+        <p className="mt-1 text-xs text-white/45">Host mailboxes on your own company domain.</p>
+        <div className="mt-3"><DomainsManager /></div>
+      </section>
+
       <section className="mt-8 border-t border-white/[0.07] pt-6">
         <h2 className="text-sm font-semibold text-white/90">Account</h2>
         <button onClick={onLogout} className="mt-3 rounded-xl border border-red-500/25 px-4 py-2.5 text-sm text-red-300 transition hover:bg-red-500/10">Sign out</button>
@@ -2202,6 +2208,80 @@ function ProfilePicture({ address }: { address: string }) {
         <p className="mt-1.5 text-xs text-white/40">Shown as your avatar across Cybrmail. Square, ~256px.</p>
         {err && <p className="mt-1 text-xs text-red-300">{err}</p>}
       </div>
+    </div>
+  );
+}
+
+function DomainsManager() {
+  const [domains, setDomains] = useState<api.Domain[] | null>(null);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [verifying, setVerifying] = useState<number | null>(null);
+  const [copied, setCopied] = useState("");
+  async function load() { try { setDomains((await api.listDomains()).domains); } catch { setDomains([]); } }
+  useEffect(() => { load(); }, []);
+  async function add() {
+    setErr(""); const d = input.trim().toLowerCase(); if (!d) return;
+    setBusy(true);
+    try { await api.addDomain(d); setInput(""); await load(); }
+    catch (e: unknown) { setErr((e as Error).message ?? "Couldn't add domain."); }
+    finally { setBusy(false); }
+  }
+  async function verify(id: number) {
+    setErr(""); setVerifying(id);
+    try { await api.verifyDomain(id); await load(); }
+    catch (e: unknown) { setErr((e as Error).message ?? "Not verified yet — DNS can take a few minutes."); }
+    finally { setVerifying(null); }
+  }
+  async function remove(id: number) {
+    if (!window.confirm("Remove this domain?")) return;
+    try { await api.deleteDomain(id); await load(); } catch { /* ignore */ }
+  }
+  function copy(v: string) { navigator.clipboard?.writeText(v); setCopied(v); setTimeout(() => setCopied(""), 1500); }
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <p className="text-xs text-white/45">Use your own domain for mailboxes like <span className="text-white/70">you@yourcompany.com</span>. Add it, prove you own it, and we host the mail.</p>
+      <div className="mt-3 flex items-center gap-2">
+        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="yourcompany.com" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-cyan-400/50 focus:outline-none" />
+        <button onClick={add} disabled={busy || !input.trim()} className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-2.5 text-sm font-semibold text-[#0B1020] disabled:opacity-50">{busy ? "…" : "Add"}</button>
+      </div>
+      {err && <p className="mt-2 text-xs text-red-300">{err}</p>}
+
+      {domains && domains.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {domains.map((d) => (
+            <div key={d.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate font-mono text-sm text-white/90">{d.domain}</span>
+                {d.status === "verified" ? (
+                  <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">Verified ✓</span>
+                ) : (
+                  <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300">Pending</span>
+                )}
+                <button onClick={() => remove(d.id)} className="text-white/30 transition hover:text-red-300"><Trash2 size={14} /></button>
+              </div>
+              {d.status !== "verified" && (
+                <>
+                  <p className="mt-2 text-[11px] text-white/45">Add this record at your domain&apos;s DNS, then verify:</p>
+                  {d.dnsRecords.map((r, i) => (
+                    <div key={i} className="mt-1.5 flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-xs">
+                      <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/60">{r.type}</span>
+                      <span className="shrink-0 font-mono text-white/50">{r.host}</span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-white/80">{r.value}</span>
+                      <button onClick={() => copy(r.value)} className="shrink-0 text-white/40 hover:text-cyan-300">{copied === r.value ? <Check size={13} /> : <Copy size={13} />}</button>
+                    </div>
+                  ))}
+                  <button onClick={() => verify(d.id)} disabled={verifying === d.id} className="mt-2 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/80 transition hover:border-cyan-400/50 hover:text-white disabled:opacity-50">{verifying === d.id ? "Checking…" : "Verify DNS"}</button>
+                </>
+              )}
+              {d.status === "verified" && (
+                <p className="mt-2 text-[11px] text-white/45">Ownership confirmed. Mailbox sending/receiving on this domain activates once provisioning is finished.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
