@@ -16,7 +16,8 @@ import {
   Inbox, Star, Send, Archive, Trash2, Search, RotateCw, Reply, Forward,
   PenLine, ArrowLeft, Play, Pause, Square, Mic, Bot, Flame, Brain,
   Calendar, LogOut, Paperclip, Mail, MailOpen, Undo2, X, Sparkles,
-  Volume2, VolumeX, Drama, Plus, Download
+  Volume2, VolumeX, Drama, Plus, Download,
+  Settings, ChevronDown, Check, Copy, AtSign
 } from "lucide-react";
 
 type View = "loading" | "auth" | "verify" | "app";
@@ -709,11 +710,15 @@ function VerifyEmail({
 type Tab = "brain" | "inbox" | "calendar";
 type ComposePrefill = { to?: string; subject?: string; text?: string };
 
+type ShellView = api.Folder | "brain" | "calendar" | "burners" | "agents" | "assistant" | "settings";
+
 function Shell({ onLogout }: { onLogout: () => void }) {
-  const [view, setView] = useState<api.Folder | "brain" | "calendar" | "burners" | "agents" | "assistant">("inbox");
+  const [view, setView] = useState<ShellView>("inbox");
   const [searchQ, setSearchQ] = useState("");
   const [inboxes, setInboxes] = useState<api.Inbox[] | null>(null); // null = loading
   const [inboxErr, setInboxErr] = useState("");
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [compose, setCompose] = useState<ComposePrefill | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -728,8 +733,8 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   }
   useEffect(() => { loadInboxes(); }, []);
 
-  const inbox = inboxes && inboxes.length > 0 ? inboxes[0] : null;
-  const isMail = view !== "brain" && view !== "calendar" && view !== "burners" && view !== "agents" && view !== "assistant";
+  const inbox = inboxes && inboxes.length > 0 ? (inboxes.find((i) => i.id === activeId) ?? inboxes[0]) : null;
+  const isMail = view === "inbox" || view === "starred" || view === "sent" || view === "archive" || view === "trash";
 
   if (inboxes === null) {
     return (
@@ -757,7 +762,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#04070D] text-white">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#04070D] text-white">
       {/* ── Top bar: brand · search · identity ─────────────────────── */}
       <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/[0.07] bg-[#070B14] px-4 sm:gap-6 sm:px-6">
         <div className="flex items-center gap-2.5">
@@ -778,13 +783,16 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           />
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={copyAddress}
-            title="Copy your address"
-            className="hidden max-w-[220px] truncate rounded-full border border-cyan-400/20 bg-cyan-500/[0.07] px-3.5 py-2 font-mono text-xs text-cyan-300 transition hover:border-cyan-400/50 md:block"
-          >
-            {copied ? "Copied ✓" : inbox.address}
-          </button>
+          <AddressSwitcher
+            inboxes={inboxes}
+            active={inbox}
+            open={switcherOpen}
+            setOpen={setSwitcherOpen}
+            onSwitch={(id) => { setActiveId(id); setSwitcherOpen(false); setView("inbox"); }}
+            onAdd={() => { setSwitcherOpen(false); setView("settings"); }}
+            onCopy={copyAddress}
+            copied={copied}
+          />
           <button
             onClick={onLogout}
             title="Sign out"
@@ -821,13 +829,15 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           <div className="my-3 border-t border-white/[0.07]" />
           <RailBtn icon={<Drama size={17} />} label="Burners" active={view === "burners"} onClick={() => setView("burners")} />
           <RailBtn icon={<Bot size={17} />} label="Agents" active={view === "agents"} onClick={() => setView("agents")} />
+          <div className="flex-1" />
+          <RailBtn icon={<Settings size={17} />} label="Settings" active={view === "settings"} onClick={() => setView("settings")} />
         </aside>
 
         {/* ── Main surface ───────────────────────────────────────────── */}
-        <main className="min-w-0 flex-1 overflow-y-auto pb-20 sm:pb-0">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden pb-16 sm:pb-0">
           {/* Mobile folder strip */}
           {isMail && (
-            <div className="flex gap-1 overflow-x-auto border-b border-white/[0.07] p-2 sm:hidden">
+            <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-white/[0.07] p-2 sm:hidden">
               {FOLDERS.map((f) => (
                 <button
                   key={f.key}
@@ -844,30 +854,44 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             </div>
           )}
           {isMail ? (
-            <MailView
-              inbox={inbox}
-              folder={view as api.Folder}
-              q={searchQ}
-              onCompose={(p) => setCompose(p ?? {})}
-              onCountsChanged={loadInboxes}
-            />
-          ) : view === "assistant" ? (
-            <AssistantView address={inbox.address} />
-          ) : view === "brain" ? (
-            <BrainTab />
-          ) : view === "burners" ? (
-            <BurnersView />
-          ) : view === "agents" ? (
-            <AgentsView />
+            <div className="min-h-0 flex-1">
+              <MailView
+                inbox={inbox}
+                folder={view as api.Folder}
+                q={searchQ}
+                onCompose={(p) => setCompose(p ?? {})}
+                onCountsChanged={loadInboxes}
+              />
+            </div>
           ) : (
-            <CalendarTab />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {view === "assistant" ? (
+                <AssistantView address={inbox.address} />
+              ) : view === "brain" ? (
+                <BrainTab />
+              ) : view === "burners" ? (
+                <BurnersView />
+              ) : view === "agents" ? (
+                <AgentsView />
+              ) : view === "settings" ? (
+                <SettingsView
+                  inboxes={inboxes}
+                  activeId={inbox.id}
+                  onSwitch={(id) => setActiveId(id)}
+                  onChanged={loadInboxes}
+                  onLogout={onLogout}
+                />
+              ) : (
+                <CalendarTab />
+              )}
+            </div>
           )}
         </main>
       </div>
 
       {/* Mobile bottom nav + FAB */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#070B14] sm:hidden">
-        {([["inbox", "📬", "Inbox"], ["brain", "🧠", "Brain"], ["calendar", "📅", "Calendar"], ["assistant", "✏️", "Compose"], ["burners", "⚙️", "Settings"]] as const).map(([k, emoji, label]) => (
+        {([["inbox", "📬", "Inbox"], ["brain", "🧠", "Brain"], ["calendar", "📅", "Calendar"], ["assistant", "✏️", "Compose"], ["settings", "⚙️", "Settings"]] as const).map(([k, emoji, label]) => (
           <button
             key={k}
             onClick={() => setView(k)}
@@ -923,6 +947,173 @@ function RailBtn({
         <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">{badge}</span>
       ) : null}
     </button>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  ADDRESS SWITCHER — multi-address dropdown in the top bar
+// ───────────────────────────────────────────────────────────────────────
+function AddressSwitcher({
+  inboxes, active, open, setOpen, onSwitch, onAdd, onCopy, copied,
+}: {
+  inboxes: api.Inbox[] | null;
+  active: api.Inbox | null;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  onSwitch: (id: number) => void;
+  onAdd: () => void;
+  onCopy: () => void;
+  copied: boolean;
+}) {
+  if (!active) return null;
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        title="Switch address"
+        className="flex max-w-[240px] items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/[0.07] py-1.5 pl-1.5 pr-3 transition hover:border-cyan-400/50"
+      >
+        <Avatar name={active.displayName || active.address} seed={active.address} />
+        <span className="hidden truncate font-mono text-xs text-cyan-200 md:block">{active.address}</span>
+        <ChevronDown size={14} className="shrink-0 text-cyan-300/60" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0b101b] p-1.5 shadow-[0_24px_64px_-16px_rgba(0,0,0,0.9)]">
+            <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-white/35">Your addresses</div>
+            {(inboxes ?? []).map((ib) => (
+              <button
+                key={ib.id}
+                onClick={() => onSwitch(ib.id)}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition hover:bg-white/[0.05]"
+              >
+                <Avatar name={ib.displayName || ib.address} seed={ib.address} />
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-white/80">{ib.address}</span>
+                {ib.id === active.id && <Check size={15} className="shrink-0 text-cyan-300" />}
+              </button>
+            ))}
+            <div className="my-1 border-t border-white/[0.07]" />
+            <button onClick={onCopy} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-white/70 transition hover:bg-white/[0.05]">
+              <Copy size={15} /> {copied ? "Copied ✓" : "Copy current address"}
+            </button>
+            <button onClick={onAdd} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-medium text-cyan-300 transition hover:bg-white/[0.05]">
+              <Plus size={15} /> Add a new address
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  SETTINGS — addresses, signature, account
+// ───────────────────────────────────────────────────────────────────────
+function SettingsView({
+  inboxes, activeId, onSwitch, onChanged, onLogout,
+}: {
+  inboxes: api.Inbox[] | null;
+  activeId: number;
+  onSwitch: (id: number) => void;
+  onChanged: () => void;
+  onLogout: () => void;
+}) {
+  const [handle, setHandle] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [err, setErr] = useState("");
+  const [sig, setSig] = useState("");
+  const [sigSaved, setSigSaved] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") setSig(localStorage.getItem("cybrmail_signature") || "");
+  }, []);
+
+  async function create() {
+    const h = handle.trim().toLowerCase();
+    if (!h) return;
+    setCreating(true); setErr("");
+    try {
+      const r = await api.createInbox(h);
+      setHandle("");
+      onChanged();
+      onSwitch(r.inbox.id);
+    } catch (e: unknown) {
+      setErr((e as Error).message ?? "Couldn't create address.");
+    } finally { setCreating(false); }
+  }
+
+  function saveSig() {
+    localStorage.setItem("cybrmail_signature", sig);
+    setSigSaved(true); setTimeout(() => setSigSaved(false), 1800);
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl px-5 py-8 sm:px-8">
+      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+      <p className="mt-1 text-sm text-white/50">Manage your addresses, signature, and account.</p>
+
+      <section className="mt-8">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-white/90"><AtSign size={16} className="text-cyan-300" /> Your addresses</h2>
+        <p className="mt-1 text-xs text-white/45">Create as many @cybrmail.net addresses as you want. Switch between them anytime.</p>
+        <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+          {(inboxes ?? []).map((ib, i) => (
+            <div key={ib.id} className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-white/[0.06]" : ""}`}>
+              <Avatar name={ib.displayName || ib.address} seed={ib.address} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-mono text-sm text-white/85">{ib.address}</div>
+                {ib.id === activeId && <div className="text-[11px] font-medium text-cyan-300">Active</div>}
+              </div>
+              {ib.id === activeId ? (
+                <span className="shrink-0 rounded-full bg-cyan-500/15 px-3 py-1 text-xs font-semibold text-cyan-300">Current</span>
+              ) : (
+                <button onClick={() => onSwitch(ib.id)} className="shrink-0 rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-cyan-400/50 hover:text-white">Switch to</button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          <div className="text-sm font-medium text-white/85">Create a new address</div>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center rounded-xl border border-white/10 bg-white/[0.03] focus-within:border-cyan-400/50">
+              <input
+                value={handle}
+                onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && create()}
+                placeholder="newname"
+                className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none"
+              />
+              <span className="shrink-0 px-3 font-mono text-sm text-white/40">@cybrmail.net</span>
+            </div>
+            <button onClick={create} disabled={creating || !handle.trim()} className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-2.5 text-sm font-semibold text-[#04070D] transition disabled:opacity-50">
+              {creating ? "…" : "Create"}
+            </button>
+          </div>
+          {err && <div className="mt-2 text-xs text-red-300">{err}</div>}
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-white/90"><PenLine size={16} className="text-cyan-300" /> Signature</h2>
+        <p className="mt-1 text-xs text-white/45">Automatically added to the bottom of messages you compose.</p>
+        <textarea
+          value={sig}
+          onChange={(e) => setSig(e.target.value)}
+          rows={4}
+          placeholder={"— Sent from Cybrmail"}
+          className="mt-3 block w-full resize-none rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-white/85 placeholder:text-white/30 focus:border-cyan-400/50 focus:outline-none"
+        />
+        <button onClick={saveSig} className="mt-2 rounded-xl border border-white/15 px-4 py-2 text-xs text-white/80 transition hover:border-cyan-400/50 hover:text-white">
+          {sigSaved ? "Saved ✓" : "Save signature"}
+        </button>
+      </section>
+
+      <section className="mt-8 border-t border-white/[0.07] pt-6">
+        <h2 className="text-sm font-semibold text-white/90">Account</h2>
+        <button onClick={onLogout} className="mt-3 rounded-xl border border-red-500/25 px-4 py-2.5 text-sm text-red-300 transition hover:bg-red-500/10">Sign out</button>
+      </section>
+    </div>
   );
 }
 
@@ -1128,7 +1319,12 @@ const DESTRUCT_OPTIONS = [
 function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?: ComposePrefill; onClose: () => void }) {
   const [to, setTo] = useState(prefill?.to ?? "");
   const [subject, setSubject] = useState(prefill?.subject ?? "");
-  const [text, setText] = useState(prefill?.text ?? "");
+  const [text, setText] = useState(() => {
+    const base = prefill?.text ?? "";
+    const sig = typeof window !== "undefined" ? (localStorage.getItem("cybrmail_signature") || "") : "";
+    if (!sig) return base;
+    return base ? `${base}\n\n${sig}` : `\n\n${sig}`;
+  });
   const [files, setFiles] = useState<api.OutAttachment[]>([]);
   const [destruct, setDestruct] = useState<(typeof DESTRUCT_OPTIONS)[number]["key"]>("off");
   const [busy, setBusy] = useState(false);
@@ -1524,33 +1720,33 @@ function MailView({
     }
   }
 
-  if (openId !== null) {
-    return (
-      <ReadingPane
-        id={openId}
-        onBack={() => { setOpenId(null); load(); onCountsChanged(); }}
-        onAct={act}
-        onReply={(m) =>
-          onCompose({
-            to: m.fromAddress,
-            subject: m.subject?.startsWith("Re:") ? m.subject : `Re: ${m.subject ?? ""}`,
-            text: `\n\n――― On ${new Date(m.sentAt ?? m.createdAt).toLocaleString()}, ${m.fromAddress} wrote:\n${(m.textBody ?? "").split("\n").map((l) => `> ${l}`).join("\n")}`,
-          })
-        }
-        onForward={(m) =>
-          onCompose({
-            subject: m.subject?.startsWith("Fwd:") ? m.subject : `Fwd: ${m.subject ?? ""}`,
-            text: `\n\n――― Forwarded message ―――\nFrom: ${m.fromAddress}\nDate: ${new Date(m.sentAt ?? m.createdAt).toLocaleString()}\nSubject: ${m.subject ?? ""}\n\n${m.textBody ?? ""}`,
-          })
-        }
-      />
-    );
-  }
+  const readingPane = openId !== null ? (
+    <ReadingPane
+      id={openId}
+      onBack={() => { setOpenId(null); load(); onCountsChanged(); }}
+      onAct={act}
+      onReply={(m) =>
+        onCompose({
+          to: m.fromAddress,
+          subject: m.subject?.startsWith("Re:") ? m.subject : `Re: ${m.subject ?? ""}`,
+          text: `\n\n――― On ${new Date(m.sentAt ?? m.createdAt).toLocaleString()}, ${m.fromAddress} wrote:\n${(m.textBody ?? "").split("\n").map((l) => `> ${l}`).join("\n")}`,
+        })
+      }
+      onForward={(m) =>
+        onCompose({
+          subject: m.subject?.startsWith("Fwd:") ? m.subject : `Fwd: ${m.subject ?? ""}`,
+          text: `\n\n――― Forwarded message ―――\nFrom: ${m.fromAddress}\nDate: ${new Date(m.sentAt ?? m.createdAt).toLocaleString()}\nSubject: ${m.subject ?? ""}\n\n${m.textBody ?? ""}`,
+        })
+      }
+    />
+  ) : null;
 
   return (
-    <div>
+    <div className="flex h-full min-h-0">
+      {/* ── LIST COLUMN ── */}
+      <div className={`min-h-0 w-full overflow-y-auto lg:w-[420px] lg:shrink-0 lg:border-r lg:border-white/[0.07] ${openId !== null ? "hidden lg:block" : "block"}`}>
       {/* Toolbar */}
-      <div className="flex h-12 items-center justify-between gap-3 border-b border-white/[0.07] px-4 sm:px-6">
+      <div className="sticky top-0 z-10 flex h-12 items-center justify-between gap-3 border-b border-white/[0.07] bg-[#04070D]/90 px-4 backdrop-blur sm:px-6">
         <div className="text-sm font-semibold capitalize text-white/80">
           {q ? `Results for “${q}”` : folder}
           <span className="ml-2 text-xs font-normal text-white/35">{messages.length || ""}</span>
@@ -1665,6 +1861,17 @@ function MailView({
           })}
         </div>
       )}
+      </div>{/* end list column */}
+
+      {/* ── READING COLUMN ── */}
+      <div className={`min-h-0 flex-1 overflow-y-auto ${openId !== null ? "block" : "hidden lg:block"}`}>
+        {readingPane ?? (
+          <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+            <Mail size={40} className="text-white/15" />
+            <p className="mt-4 text-sm text-white/40">Select a message to read it here.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
