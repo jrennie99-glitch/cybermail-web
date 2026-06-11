@@ -1615,53 +1615,51 @@ function MailView({
             return (
               <div
                 key={m.id}
-                className="group relative cursor-pointer px-4 py-3.5 transition hover:bg-white/[0.03] sm:px-6"
+                className="group relative flex cursor-pointer items-start gap-3 px-4 py-3 transition hover:bg-white/[0.035] sm:px-6"
                 onClick={() => setOpenId(m.id)}
               >
-                <div className="flex items-center gap-2.5">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${unread ? "bg-slate-300" : "bg-transparent"}`} />
-                  <span className={`min-w-0 flex-1 truncate text-[17px] ${unread ? "font-bold text-white" : "font-semibold text-white/80"}`}>
-                    {who}
-                  </span>
-                  <span className="shrink-0 text-sm text-slate-400">{new Date(m.createdAt).toLocaleDateString()}</span>
-                </div>
-                <div className="mt-0.5 pl-[18px]">
-                  <div className="truncate text-[15px] text-slate-300">
+                {/* unread accent bar */}
+                <span className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-full ${unread ? "bg-gradient-to-b from-cyan-400 to-violet-500" : "bg-transparent"}`} />
+                <Avatar name={who} seed={m.fromAddress ?? m.from_address ?? who} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className={`min-w-0 flex-1 truncate text-[15px] ${unread ? "font-semibold text-white" : "font-medium text-white/70"}`}>
+                      {who}
+                    </span>
                     {m.labels?.filter((l) => l.startsWith("via ")).map((l) => (
-                      <span key={l} className="mr-1.5 rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">{l}</span>
+                      <span key={l} className="shrink-0 rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-300">{l.replace(/^via /, "")}</span>
                     ))}
-                    {m.hasAttachments && <span className="mr-1">📎</span>}
+                    {m.starred && <Star size={13} className="shrink-0 fill-amber-300 text-amber-300" />}
+                    {m.hasAttachments && <Paperclip size={13} className="shrink-0 text-white/40" />}
+                    <span className="shrink-0 text-xs tabular-nums text-white/40">{relDate(m.createdAt)}</span>
+                  </div>
+                  <div className={`mt-0.5 truncate text-[14px] ${unread ? "text-white/90" : "text-white/55"}`}>
                     {m.subject || "(no subject)"}
                   </div>
                   {m.summary && (
-                    <div className="mt-0.5 line-clamp-2 text-[14px] leading-snug text-slate-400/80">{m.summary}</div>
+                    <div className="mt-0.5 line-clamp-1 text-[13px] leading-snug text-white/35">{m.summary}</div>
                   )}
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="rounded-full bg-slate-700/40 px-2.5 py-1 text-xs text-slate-300">✉️ Other</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); act(m.id, { starred: !m.starred }); }}
-                      className={`rounded-full px-2 py-1 text-xs ${m.starred ? "text-amber-300" : "text-slate-500 hover:text-slate-300"}`}
-                    >{m.starred ? "★ Starred" : "☆"}</button>
-                    <span className="flex-1" />
-                    <span className="hidden items-center gap-1 sm:group-hover:flex">
-                      {folder !== "archive" && folder !== "trash" && folder !== "sent" && (
-                        <IconBtn title="Archive" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "archive" }); }}><Archive size={15} /></IconBtn>
-                      )}
-                      {folder !== "trash" ? (
-                        <IconBtn title="Trash" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "trash" }); }}><Trash2 size={15} /></IconBtn>
-                      ) : (
-                        <>
-                          <IconBtn title="Restore" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "inbox" }); }}><Undo2 size={15} /></IconBtn>
-                          <IconBtn title="Delete forever" onClick={(e) => { e.stopPropagation(); destroy(m.id); }}><X size={15} /></IconBtn>
-                        </>
-                      )}
-                      <IconBtn title={unread ? "Mark read" : "Mark unread"} onClick={(e) => { e.stopPropagation(); act(m.id, { read: unread }); }}>
-                        {unread ? <MailOpen size={15} /> : <Mail size={15} />}
-                      </IconBtn>
-                    </span>
-                  </div>
                 </div>
-                <div className="absolute inset-x-4 bottom-0 h-px bg-slate-700/30 sm:inset-x-6" />
+                {/* hover action cluster */}
+                <div className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-full border border-white/10 bg-[#0b101b] px-1 py-0.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.8)] sm:group-hover:flex sm:right-5">
+                  <IconBtn title={m.starred ? "Unstar" : "Star"} onClick={(e) => { e.stopPropagation(); act(m.id, { starred: !m.starred }); }}>
+                    <Star size={15} className={m.starred ? "fill-amber-300 text-amber-300" : ""} />
+                  </IconBtn>
+                  {folder !== "archive" && folder !== "trash" && folder !== "sent" && (
+                    <IconBtn title="Archive" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "archive" }); }}><Archive size={15} /></IconBtn>
+                  )}
+                  {folder !== "trash" ? (
+                    <IconBtn title="Trash" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "trash" }); }}><Trash2 size={15} /></IconBtn>
+                  ) : (
+                    <>
+                      <IconBtn title="Restore" onClick={(e) => { e.stopPropagation(); act(m.id, { folder: "inbox" }); }}><Undo2 size={15} /></IconBtn>
+                      <IconBtn title="Delete forever" onClick={(e) => { e.stopPropagation(); destroy(m.id); }}><X size={15} /></IconBtn>
+                    </>
+                  )}
+                  <IconBtn title={unread ? "Mark read" : "Mark unread"} onClick={(e) => { e.stopPropagation(); act(m.id, { read: unread }); }}>
+                    {unread ? <MailOpen size={15} /> : <Mail size={15} />}
+                  </IconBtn>
+                </div>
               </div>
             );
           })}
