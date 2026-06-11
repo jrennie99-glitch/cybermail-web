@@ -722,6 +722,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [compose, setCompose] = useState<ComposePrefill | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   async function loadInboxes() {
     try {
@@ -733,6 +734,21 @@ function Shell({ onLogout }: { onLogout: () => void }) {
     }
   }
   useEffect(() => { loadInboxes(); }, []);
+
+  // Global shortcuts: c = compose, / = search, ? = help, Esc = close
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = document.activeElement as HTMLElement | null;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if (e.key === "Escape") { setShowHelp(false); setSwitcherOpen(false); return; }
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "c") { e.preventDefault(); setCompose({}); }
+      else if (e.key === "/") { e.preventDefault(); document.getElementById("cybr-search")?.focus(); }
+      else if (e.key === "?") { e.preventDefault(); setShowHelp((v) => !v); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const inbox = inboxes && inboxes.length > 0 ? (inboxes.find((i) => i.id === activeId) ?? inboxes[0]) : null;
   const isMail = view === "inbox" || view === "starred" || view === "sent" || view === "archive" || view === "trash";
@@ -773,8 +789,9 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         <div className="relative mx-auto w-full max-w-2xl">
           <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
           <input
+            id="cybr-search"
             type="search"
-            placeholder="Search mail"
+            placeholder="Search mail —  from:  to:  subject:  has:attachment  is:unread"
             value={searchQ}
             onChange={(e) => {
               setSearchQ(e.target.value);
@@ -916,6 +933,42 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       {compose !== null && (
         <ComposeModal inbox={inbox} prefill={compose} onClose={() => setCompose(null)} />
       )}
+      {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
+    </div>
+  );
+}
+
+// ─── Keyboard shortcuts help (press ?) ────────────────────────────────
+function ShortcutsHelp({ onClose }: { onClose: () => void }) {
+  const groups: { title: string; items: [string, string][] }[] = [
+    { title: "Global", items: [["c", "Compose"], ["/", "Search"], ["?", "This menu"], ["Esc", "Close / blur"]] },
+    { title: "Message list", items: [["j / k", "Down / up"], ["Enter / o", "Open"], ["e", "Archive"], ["#", "Trash"], ["s / *", "Star"], ["r", "Reply"]] },
+    { title: "Reading a message", items: [["u", "Back to list"], ["e", "Archive"], ["#", "Trash"]] },
+    { title: "Search operators", items: [["from:", "Sender"], ["subject:", "Subject"], ["has:attachment", "Has files"], ["is:unread", "Unread only"], ["is:starred", "Starred only"]] },
+  ];
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0A0F1A] p-6 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.9)]" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight">Keyboard shortcuts</h2>
+          <button onClick={onClose} className="rounded-lg px-2 py-1 text-white/40 transition hover:bg-white/[0.06] hover:text-white"><X size={18} /></button>
+        </div>
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+          {groups.map((g) => (
+            <div key={g.title}>
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-cyan-300/70">{g.title}</div>
+              <div className="space-y-1.5">
+                {g.items.map(([k, label]) => (
+                  <div key={k} className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-white/70">{label}</span>
+                    <kbd className="shrink-0 rounded-md border border-white/15 bg-white/[0.05] px-2 py-0.5 font-mono text-xs text-white/80">{k}</kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1410,6 +1463,21 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [pending, setPending] = useState(false);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (undoTimer.current) clearTimeout(undoTimer.current); }, []);
+
+  function scheduleSend() {
+    if (!validTo) { setError("Enter at least one valid recipient address."); return; }
+    if (!subject.trim() && !text.trim()) { setError("Add a subject or a message."); return; }
+    setError("");
+    setPending(true);
+    undoTimer.current = setTimeout(() => { setPending(false); send(); }, 5000);
+  }
+  function undoSend() {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setPending(false);
+  }
 
   async function addFiles(list: FileList | null) {
     if (!list) return;
@@ -1456,12 +1524,12 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-end sm:justify-end sm:bg-transparent sm:p-6 sm:backdrop-blur-none"
-      onClick={(e) => e.target === e.currentTarget && !busy && onClose()}
+      onClick={(e) => e.target === e.currentTarget && !busy && !pending && onClose()}
     >
       <div className="w-full max-w-xl rounded-t-2xl border border-white/10 bg-[#0A0F1A] shadow-[0_24px_80px_-12px_rgba(0,0,0,0.9)] sm:rounded-2xl">
         <div className="flex items-center justify-between rounded-t-2xl bg-[#0D1322] px-5 py-3">
           <h2 className="text-sm font-bold tracking-tight">New message</h2>
-          <button onClick={onClose} disabled={busy} className="rounded-lg px-2 py-1 text-white/40 transition hover:bg-white/[0.06] hover:text-white">✕</button>
+          <button onClick={onClose} disabled={busy || pending} className="rounded-lg px-2 py-1 text-white/40 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40">✕</button>
         </div>
         <div className="p-5">
 
@@ -1524,16 +1592,27 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
         )}
 
         <div className="mt-5 flex items-center justify-end gap-3">
-          <button onClick={onClose} disabled={busy} className="rounded-xl px-4 py-3 text-sm text-white/50 transition hover:text-white">
-            Discard
-          </button>
-          <button
-            onClick={send}
-            disabled={busy || sent}
-            className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-6 py-3 text-sm font-semibold text-[#04070D] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.6)] disabled:opacity-60"
-          >
-            {sent ? "Sent ✓" : busy ? "Sending..." : "Send"}
-          </button>
+          {pending ? (
+            <div className="flex w-full items-center justify-between rounded-xl border border-cyan-400/25 bg-cyan-500/[0.07] px-4 py-2.5">
+              <span className="flex items-center gap-2 text-sm text-cyan-100">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" /> Sending in a moment…
+              </span>
+              <button onClick={undoSend} className="rounded-lg border border-white/20 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10">Undo</button>
+            </div>
+          ) : (
+            <>
+              <button onClick={onClose} disabled={busy} className="rounded-xl px-4 py-3 text-sm text-white/50 transition hover:text-white">
+                Discard
+              </button>
+              <button
+                onClick={scheduleSend}
+                disabled={busy || sent}
+                className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-6 py-3 text-sm font-semibold text-[#04070D] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.6)] disabled:opacity-60"
+              >
+                {sent ? "Sent ✓" : busy ? "Sending..." : "Send"}
+              </button>
+            </>
+          )}
         </div>
         </div>
       </div>
@@ -1735,6 +1814,29 @@ function speechText(from: string, subject: string | null, body: string | null) {
   return `Message from ${displayName(from)}. Subject: ${subject || "no subject"}. ${body || "The message is empty."}`;
 }
 
+// Parse Gmail-style search operators (from:, to:, subject:, has:attachment,
+// is:unread/read/starred) out of a query. Free text goes to the backend; the
+// operators are applied client-side over the returned list.
+function parseSearch(query: string): { text: string; filters: ((m: api.MessageSummary) => boolean)[] } {
+  const filters: ((m: api.MessageSummary) => boolean)[] = [];
+  const words: string[] = [];
+  for (const tok of query.split(/\s+/).filter(Boolean)) {
+    const mm = tok.match(/^(from|to|subject|has|is):(.+)$/i);
+    if (!mm) { words.push(tok); continue; }
+    const key = mm[1].toLowerCase();
+    const val = mm[2].toLowerCase();
+    if (key === "from") filters.push((m) => (m.fromAddress ?? m.from_address ?? "").toLowerCase().includes(val));
+    else if (key === "to") filters.push((m) => (m.toAddresses ?? []).join(",").toLowerCase().includes(val));
+    else if (key === "subject") filters.push((m) => (m.subject ?? "").toLowerCase().includes(val));
+    else if (key === "has" && val.startsWith("attach")) filters.push((m) => !!m.hasAttachments);
+    else if (key === "is" && val === "unread") filters.push((m) => m.read === false);
+    else if (key === "is" && val === "read") filters.push((m) => m.read !== false);
+    else if (key === "is" && val === "starred") filters.push((m) => !!m.starred);
+    else words.push(tok);
+  }
+  return { text: words.join(" "), filters };
+}
+
 function MailView({
   inbox,
   folder,
@@ -1754,13 +1856,14 @@ function MailView({
   const [openId, setOpenId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [autoRead, setAutoRead] = useState(false);
+  const [cursor, setCursor] = useState(0);
   useEffect(() => { setAutoRead(getAutoRead()); }, []);
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const r = await api.listMessages(inbox.id, { folder, q: q || undefined });
+      const r = await api.listMessages(inbox.id, { folder, q: parseSearch(q).text || undefined });
       setMessages(r.messages);
     } catch (err: unknown) {
       setError((err as Error).message ?? "Couldn't load messages.");
@@ -1816,6 +1919,42 @@ function MailView({
     />
   ) : null;
 
+  // Client-side operator filtering over the fetched list
+  const { filters } = parseSearch(q);
+  const visible = filters.length ? messages.filter((m) => filters.every((f) => f(m))) : messages;
+
+  // Keep the keyboard cursor in range; scroll the focused row into view
+  useEffect(() => { setCursor((c) => Math.min(Math.max(0, c), Math.max(0, visible.length - 1))); }, [visible.length]);
+  useEffect(() => { document.getElementById(`row-${cursor}`)?.scrollIntoView({ block: "nearest" }); }, [cursor]);
+
+  // Keyboard shortcuts (Gmail/Superhuman-style)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = document.activeElement as HTMLElement | null;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if (typing) { if (e.key === "Escape") el!.blur(); return; }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (openId !== null) {
+        if (e.key === "Escape" || e.key === "u") { setOpenId(null); load(); onCountsChanged(); }
+        else if (e.key === "e") { act(openId, { folder: "archive" }); setOpenId(null); }
+        else if (e.key === "#") { act(openId, { folder: "trash" }); setOpenId(null); }
+        return;
+      }
+      if (!visible.length) return;
+      const m = visible[cursor];
+      if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(c + 1, visible.length - 1)); }
+      else if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); setCursor((c) => Math.max(c - 1, 0)); }
+      else if (e.key === "Enter" || e.key === "o") { if (m) setOpenId(m.id); }
+      else if (e.key === "e") { if (m) act(m.id, { folder: "archive" }); }
+      else if (e.key === "#") { if (m) act(m.id, { folder: "trash" }); }
+      else if (e.key === "s" || e.key === "*") { if (m) act(m.id, { starred: !m.starred }); }
+      else if (e.key === "r") { if (m) onCompose({ to: m.fromAddress ?? m.from_address, subject: m.subject?.startsWith("Re:") ? m.subject : `Re: ${m.subject ?? ""}` }); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, cursor, openId]);
+
   return (
     <div className="flex h-full min-h-0">
       {/* ── LIST COLUMN ── */}
@@ -1856,7 +1995,7 @@ function MailView({
       )}
 
       {/* Message list — Gmail-dense rows */}
-      {!loading && !error && messages.length === 0 ? (
+      {!loading && !error && visible.length === 0 ? (
         folder === "inbox" && !q ? (
           <div className="mx-auto mt-16 max-w-sm px-6 text-center">
             <Inbox size={40} className="mx-auto text-white/25" />
@@ -1880,14 +2019,16 @@ function MailView({
         )
       ) : (
         <div className="divide-y divide-white/[0.05]">
-          {messages.map((m) => {
+          {visible.map((m, idx) => {
             const unread = m.read === false;
             const who = folder === "sent" ? `To: ${(m.toAddresses ?? []).join(", ")}` : displayName(m.fromAddress ?? m.from_address ?? "");
+            const focused = idx === cursor;
             return (
               <div
                 key={m.id}
-                className="group relative flex cursor-pointer items-start gap-3 px-4 py-3 transition hover:bg-white/[0.035] sm:px-6"
-                onClick={() => setOpenId(m.id)}
+                id={`row-${idx}`}
+                className={`group relative flex cursor-pointer items-start gap-3 px-4 py-3 transition sm:px-6 ${focused ? "bg-cyan-500/[0.07] shadow-[inset_2px_0_0_0_rgba(34,211,238,0.8)]" : "hover:bg-white/[0.035]"}`}
+                onClick={() => { setCursor(idx); setOpenId(m.id); }}
               >
                 {/* unread accent bar */}
                 <span className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-full ${unread ? "bg-gradient-to-b from-cyan-400 to-violet-500" : "bg-transparent"}`} />
