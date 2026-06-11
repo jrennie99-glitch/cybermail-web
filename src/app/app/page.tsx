@@ -67,7 +67,7 @@ export default function AppPage() {
 
   if (view === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#04070D]">
+      <div className="flex min-h-screen items-center justify-center bg-[#0B1020]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
       </div>
     );
@@ -224,7 +224,7 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-1 bg-[#04070D] text-white lg:grid-cols-[1.1fr_0.9fr]">
+    <div className="grid min-h-screen grid-cols-1 bg-[#0B1020] text-white lg:grid-cols-[1.1fr_0.9fr]">
       {/* ─── LEFT PANE: cinematic brand video + value prop ───────────── */}
       <aside className="relative hidden overflow-hidden lg:block">
         <video
@@ -241,8 +241,8 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
           <source src="/brand-hero.mp4" type="video/mp4" />
         </video>
         {/* Cinematic gradient overlays — preserve video center, darken edges for legibility */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#04070D] via-transparent to-[#04070D]/40" aria-hidden />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#04070D]/60 via-transparent to-[#04070D]" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#0B1020] via-transparent to-[#0B1020]/40" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0B1020]/60 via-transparent to-[#0B1020]" aria-hidden />
 
         {/* Top: logo */}
         <a
@@ -514,7 +514,7 @@ function Auth({ onSignedIn }: { onSignedIn: (needsVerify: boolean) => void }) {
               ? cleanedHandle.length < 3 || handleStatus === "unavailable" || handleStatus === "checking"
               : !email)
           }
-          className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-4 text-sm font-semibold text-[#04070D] shadow-[0_8px_32px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_12px_40px_-8px_rgba(0,229,255,0.7)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-4 text-sm font-semibold text-[#0B1020] shadow-[0_8px_32px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_12px_40px_-8px_rgba(0,229,255,0.7)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy
             ? "..."
@@ -651,7 +651,7 @@ function VerifyEmail({
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#04070D] px-6 text-white">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#0B1020] px-6 text-white">
       <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none" aria-hidden />
       <div className="relative w-full max-w-md">
         <div className="mb-6 flex items-center gap-3">
@@ -687,7 +687,7 @@ function VerifyEmail({
         <button
           onClick={submit}
           disabled={busy || code.length !== 6}
-          className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-4 text-sm font-semibold text-[#04070D] transition hover:shadow-[0_12px_40px_-8px_rgba(0,229,255,0.7)] disabled:opacity-50"
+          className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-4 text-sm font-semibold text-[#0B1020] transition hover:shadow-[0_12px_40px_-8px_rgba(0,229,255,0.7)] disabled:opacity-50"
         >
           {busy ? "Verifying..." : "Verify"}
         </button>
@@ -755,7 +755,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
 
   if (inboxes === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#04070D]">
+      <div className="flex min-h-screen items-center justify-center bg-[#0B1020]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
       </div>
     );
@@ -779,9 +779,9 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#04070D] text-white">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#0B1020] text-white">
       {/* ── Top bar: brand · search · identity ─────────────────────── */}
-      <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/[0.07] bg-[#070B14] px-4 sm:gap-6 sm:px-6">
+      <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/[0.07] bg-[#11182E] px-4 sm:gap-6 sm:px-6">
         <div className="flex items-center gap-2.5">
           <Logo className="h-7 w-7" />
           <span className="hidden font-mono text-xs font-bold tracking-[0.3em] sm:inline">CYBRMAIL</span>
@@ -823,10 +823,10 @@ function Shell({ onLogout }: { onLogout: () => void }) {
 
       <div className="flex min-h-0 flex-1">
         {/* ── Left rail: compose + folders + apps ────────────────────── */}
-        <aside className="hidden w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-white/[0.07] bg-[#060A12] p-4 sm:flex">
+        <aside className="hidden w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-white/[0.07] bg-[#11182E] p-4 sm:flex">
           <button
             onClick={() => setCompose({})}
-            className="mb-4 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3.5 text-sm font-semibold text-[#04070D] shadow-[0_8px_24px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.7)]"
+            className="mb-4 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3.5 text-sm font-semibold text-[#0B1020] shadow-[0_8px_24px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.7)]"
           >
             <PenLine size={17} /> Compose
           </button>
@@ -908,7 +908,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       </div>
 
       {/* Mobile bottom nav + FAB */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#070B14] sm:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#11182E] sm:hidden">
         {([["inbox", "📬", "Inbox"], ["brain", "🧠", "Brain"], ["calendar", "📅", "Calendar"], ["assistant", "✏️", "Compose"], ["settings", "⚙️", "Settings"]] as const).map(([k, emoji, label]) => (
           <button
             key={k}
@@ -924,7 +924,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       </div>
       <button
         onClick={() => setCompose({})}
-        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 text-xl text-[#04070D] shadow-[0_12px_32px_-8px_rgba(0,229,255,0.7)] sm:hidden"
+        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 text-xl text-[#0B1020] shadow-[0_12px_32px_-8px_rgba(0,229,255,0.7)] sm:hidden"
         title="Compose"
       >
         <PenLine size={22} />
@@ -948,7 +948,7 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
   ];
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0A0F1A] p-6 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.9)]" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#161F3A] p-6 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.9)]" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold tracking-tight">Keyboard shortcuts</h2>
           <button onClick={onClose} className="rounded-lg px-2 py-1 text-white/40 transition hover:bg-white/[0.06] hover:text-white"><X size={18} /></button>
@@ -1034,7 +1034,7 @@ function AddressSwitcher({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0b101b] p-1.5 shadow-[0_24px_64px_-16px_rgba(0,0,0,0.9)]">
+          <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#1B2545] p-1.5 shadow-[0_24px_64px_-16px_rgba(0,0,0,0.9)]">
             <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-white/35">Your addresses</div>
             {(inboxes ?? []).map((ib) => (
               <button
@@ -1140,7 +1140,7 @@ function SettingsView({
               />
               <span className="shrink-0 px-3 font-mono text-sm text-white/40">@cybrmail.net</span>
             </div>
-            <button onClick={create} disabled={creating || !handle.trim()} className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-2.5 text-sm font-semibold text-[#04070D] transition disabled:opacity-50">
+            <button onClick={create} disabled={creating || !handle.trim()} className="shrink-0 rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-2.5 text-sm font-semibold text-[#0B1020] transition disabled:opacity-50">
               {creating ? "…" : "Create"}
             </button>
           </div>
@@ -1265,7 +1265,7 @@ function ClaimAddress({
         : "border-white/10 focus-within:border-cyan-400/50 focus-within:ring-cyan-400/20";
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#04070D] px-6 text-white">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#0B1020] px-6 text-white">
       <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none" aria-hidden />
       <div
         className="pointer-events-none absolute inset-0"
@@ -1343,7 +1343,7 @@ function ClaimAddress({
         <button
           onClick={() => claim()}
           disabled={busy || !valid || status === "unavailable" || status === "checking"}
-          className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-4 text-sm font-semibold text-[#04070D] shadow-[0_8px_32px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_12px_40px_-8px_rgba(0,229,255,0.7)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-4 text-sm font-semibold text-[#0B1020] shadow-[0_8px_32px_-8px_rgba(0,229,255,0.5)] transition hover:shadow-[0_12px_40px_-8px_rgba(0,229,255,0.7)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? "Claiming..." : cleaned && valid ? `Claim ${cleaned}@cybrmail.net` : "Claim your address"}
         </button>
@@ -1526,8 +1526,8 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-end sm:justify-end sm:bg-transparent sm:p-6 sm:backdrop-blur-none"
       onClick={(e) => e.target === e.currentTarget && !busy && !pending && onClose()}
     >
-      <div className="w-full max-w-xl rounded-t-2xl border border-white/10 bg-[#0A0F1A] shadow-[0_24px_80px_-12px_rgba(0,0,0,0.9)] sm:rounded-2xl">
-        <div className="flex items-center justify-between rounded-t-2xl bg-[#0D1322] px-5 py-3">
+      <div className="w-full max-w-xl rounded-t-2xl border border-white/10 bg-[#161F3A] shadow-[0_24px_80px_-12px_rgba(0,0,0,0.9)] sm:rounded-2xl">
+        <div className="flex items-center justify-between rounded-t-2xl bg-[#1B2545] px-5 py-3">
           <h2 className="text-sm font-bold tracking-tight">New message</h2>
           <button onClick={onClose} disabled={busy || pending} className="rounded-lg px-2 py-1 text-white/40 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40">✕</button>
         </div>
@@ -1607,7 +1607,7 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
               <button
                 onClick={scheduleSend}
                 disabled={busy || sent}
-                className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-6 py-3 text-sm font-semibold text-[#04070D] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.6)] disabled:opacity-60"
+                className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-6 py-3 text-sm font-semibold text-[#0B1020] transition hover:shadow-[0_10px_32px_-8px_rgba(0,229,255,0.6)] disabled:opacity-60"
               >
                 {sent ? "Sent ✓" : busy ? "Sending..." : "Send"}
               </button>
@@ -1670,7 +1670,7 @@ function BrainTab() {
         <button
           onClick={ask}
           disabled={asking}
-          className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#04070D] disabled:opacity-50"
+          className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#0B1020] disabled:opacity-50"
         >
           {asking ? "..." : "Ask"}
         </button>
@@ -1958,9 +1958,9 @@ function MailView({
   return (
     <div className="flex h-full min-h-0">
       {/* ── LIST COLUMN ── */}
-      <div className={`min-h-0 w-full overflow-y-auto lg:w-[420px] lg:shrink-0 lg:border-r lg:border-white/[0.07] ${openId !== null ? "hidden lg:block" : "block"}`}>
+      <div className={`min-h-0 w-full overflow-y-auto bg-[#11182E] lg:w-[420px] lg:shrink-0 lg:border-r lg:border-white/[0.07] ${openId !== null ? "hidden lg:block" : "block"}`}>
       {/* Toolbar */}
-      <div className="sticky top-0 z-10 flex h-12 items-center justify-between gap-3 border-b border-white/[0.07] bg-[#04070D]/90 px-4 backdrop-blur sm:px-6">
+      <div className="sticky top-0 z-10 flex h-12 items-center justify-between gap-3 border-b border-white/[0.07] bg-[#11182E]/95 px-4 backdrop-blur sm:px-6">
         <div className="text-sm font-semibold capitalize text-white/80">
           {q ? `Results for “${q}”` : folder}
           <span className="ml-2 text-xs font-normal text-white/35">{messages.length || ""}</span>
@@ -2053,7 +2053,7 @@ function MailView({
                   )}
                 </div>
                 {/* hover action cluster */}
-                <div className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-full border border-white/10 bg-[#0b101b] px-1 py-0.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.8)] sm:group-hover:flex sm:right-5">
+                <div className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-full border border-white/10 bg-[#1B2545] px-1 py-0.5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.8)] sm:group-hover:flex sm:right-5">
                   <IconBtn title={m.starred ? "Unstar" : "Star"} onClick={(e) => { e.stopPropagation(); act(m.id, { starred: !m.starred }); }}>
                     <Star size={15} className={m.starred ? "fill-amber-300 text-amber-300" : ""} />
                   </IconBtn>
@@ -2225,12 +2225,12 @@ function ReadingPane({
       )}
       {!msg && !error && <div className="p-8 text-white/40">Opening...</div>}
       {msg && (
-        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
+        <div className="mx-auto my-5 max-w-3xl rounded-2xl border border-white/[0.07] bg-[#161F3A] px-5 py-7 shadow-[0_16px_56px_-24px_rgba(0,0,0,0.8)] sm:px-8">
           <h1 className="text-[1.4rem] font-semibold leading-snug tracking-tight">{msg.subject || "(no subject)"}</h1>
 
           {/* Sender card */}
-          <div className="mt-5 flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 font-semibold text-[#04070D]">
+          <div className="mt-5 flex items-start gap-3 border-b border-white/[0.06] pb-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 font-semibold text-[#0B1020]">
               {initial}
             </div>
             <div className="min-w-0 flex-1">
@@ -2246,7 +2246,7 @@ function ReadingPane({
               title={speech === "playing" ? "Pause reading" : "Read this email aloud"}
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${
                 speech !== "idle"
-                  ? "bg-gradient-to-r from-cyan-400 to-violet-500 text-[#04070D] shadow-[0_4px_16px_-4px_rgba(0,229,255,0.6)]"
+                  ? "bg-gradient-to-r from-cyan-400 to-violet-500 text-[#0B1020] shadow-[0_4px_16px_-4px_rgba(0,229,255,0.6)]"
                   : "border border-white/15 text-white/70 hover:border-cyan-400/50 hover:text-white"
               }`}
             >
@@ -2300,7 +2300,7 @@ function ReadingPane({
           )}
 
           {/* Reply / Forward */}
-          <div className="mt-8 flex gap-2">
+          <div className="mt-7 flex gap-2 border-t border-white/[0.06] pt-6">
             <button
               onClick={() => onReply(msg)}
               className="inline-flex items-center gap-2 rounded-full border border-white/15 px-6 py-2.5 text-sm font-medium text-white/85 transition hover:border-cyan-400/50 hover:text-white"
@@ -2453,7 +2453,7 @@ function AssistantView({ address }: { address: string }) {
         <button
           onClick={() => send()}
           disabled={busy || !input.trim()}
-          className="h-11 shrink-0 rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 px-6 text-sm font-semibold text-[#04070D] disabled:opacity-50"
+          className="h-11 shrink-0 rounded-full bg-gradient-to-r from-cyan-400 to-violet-500 px-6 text-sm font-semibold text-[#0B1020] disabled:opacity-50"
         >
           Send
         </button>
@@ -2521,7 +2521,7 @@ function BurnersView() {
         <button
           onClick={create}
           disabled={busy}
-          className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#04070D] disabled:opacity-50"
+          className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#0B1020] disabled:opacity-50"
         >
           {busy ? "..." : <span className="inline-flex items-center gap-1.5"><Plus size={15} /> New burner</span>}
         </button>
@@ -2616,7 +2616,7 @@ function AgentsView() {
         <button
           onClick={create}
           disabled={busy}
-          className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#04070D] disabled:opacity-50"
+          className="rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-5 py-3 text-sm font-semibold text-[#0B1020] disabled:opacity-50"
         >
           {busy ? "..." : <span className="inline-flex items-center gap-1.5"><Plus size={15} /> Create agent</span>}
         </button>
@@ -2665,7 +2665,7 @@ curl ${apiBase}/api/agent/me -H "Authorization: Bearer ..."`}</pre>
         )}
         {agents.map((a) => (
           <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 text-sm font-bold text-[#04070D]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 text-sm font-bold text-[#0B1020]">
               {a.name[0]?.toUpperCase() ?? "A"}
             </div>
             <div className="min-w-0">
