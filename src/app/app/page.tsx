@@ -9,7 +9,7 @@
  *
  * After login: 3-pane app shell (Brain / Inbox / Calendar) talking to api.cybrmail.net.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import * as api from "@/lib/api";
 import { Logo } from "@/components/Logo";
 import {
@@ -17,7 +17,8 @@ import {
   PenLine, ArrowLeft, Play, Pause, Square, Mic, Bot, Flame, Brain,
   Calendar, LogOut, Paperclip, Mail, MailOpen, Undo2, X, Sparkles,
   Volume2, VolumeX, Drama, Plus, Download,
-  Settings, ChevronDown, Check, Copy, AtSign
+  Settings, ChevronDown, Check, Copy, AtSign,
+  Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon
 } from "lucide-react";
 
 type View = "loading" | "auth" | "verify" | "app";
@@ -1316,15 +1317,94 @@ const DESTRUCT_OPTIONS = [
   { key: "once", label: "View once" },
 ] as const;
 
+// ─── Rich-text editor (formatting → HTML) ─────────────────────────────
+function FmtBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className="rounded-md p-1.5 text-white/55 transition hover:bg-white/[0.08] hover:text-white"
+    >
+      {children}
+    </button>
+  );
+}
+
+function RichEditor({ initialText, onChange }: { initialText: string; onChange: (html: string, text: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    el.innerHTML = initialText ? esc(initialText).replace(/\n/g, "<br>") : "";
+    onChange(el.innerHTML, el.innerText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function cmd(c: string, v?: string) {
+    document.execCommand(c, false, v);
+    ref.current?.focus();
+    if (ref.current) onChange(ref.current.innerHTML, ref.current.innerText);
+  }
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] transition focus-within:border-cyan-400/50">
+      <div className="flex flex-wrap items-center gap-0.5 border-b border-white/[0.07] px-2 py-1.5">
+        <FmtBtn onClick={() => cmd("bold")} title="Bold"><Bold size={15} /></FmtBtn>
+        <FmtBtn onClick={() => cmd("italic")} title="Italic"><Italic size={15} /></FmtBtn>
+        <FmtBtn onClick={() => cmd("underline")} title="Underline"><Underline size={15} /></FmtBtn>
+        <div className="mx-1 h-4 w-px bg-white/10" />
+        <FmtBtn onClick={() => cmd("insertUnorderedList")} title="Bulleted list"><List size={15} /></FmtBtn>
+        <FmtBtn onClick={() => cmd("insertOrderedList")} title="Numbered list"><ListOrdered size={15} /></FmtBtn>
+        <div className="mx-1 h-4 w-px bg-white/10" />
+        <FmtBtn onClick={() => { const url = window.prompt("Link URL:"); if (url) cmd("createLink", url); }} title="Insert link"><LinkIcon size={15} /></FmtBtn>
+      </div>
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={() => { if (ref.current) onChange(ref.current.innerHTML, ref.current.innerText); }}
+        data-placeholder="Write your message…"
+        className="max-h-[42vh] min-h-[180px] overflow-y-auto px-4 py-3 text-sm leading-relaxed text-white focus:outline-none [&_a]:text-cyan-300 [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6 empty:before:text-white/30 empty:before:content-[attr(data-placeholder)]"
+      />
+    </div>
+  );
+}
+
+// ─── Sandboxed HTML email renderer (renders on a white 'paper' card) ──
+function HtmlMail({ html }: { html: string }) {
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:18px;background:#fff;color:#1a1a1a;font:15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;word-wrap:break-word;overflow-wrap:break-word}img{max-width:100%;height:auto}a{color:#0b66c3}table{max-width:100%!important}blockquote{margin:0 0 0 12px;padding-left:12px;border-left:3px solid #ddd;color:#555}</style></head><body>${html}</body></html>`;
+  return (
+    <div className="mt-5 overflow-hidden rounded-xl bg-white shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)]">
+      <iframe
+        title="Message content"
+        sandbox="allow-same-origin allow-popups"
+        srcDoc={doc}
+        className="block w-full"
+        style={{ height: 360, border: 0 }}
+        onLoad={(e) => {
+          try {
+            const f = e.currentTarget;
+            const h = f.contentDocument?.body?.scrollHeight;
+            if (h) f.style.height = Math.min(h + 28, 6000) + "px";
+          } catch { /* cross-origin guard */ }
+        }}
+      />
+    </div>
+  );
+}
+
 function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?: ComposePrefill; onClose: () => void }) {
   const [to, setTo] = useState(prefill?.to ?? "");
   const [subject, setSubject] = useState(prefill?.subject ?? "");
-  const [text, setText] = useState(() => {
+  const initialText = (() => {
     const base = prefill?.text ?? "";
     const sig = typeof window !== "undefined" ? (localStorage.getItem("cybrmail_signature") || "") : "";
     if (!sig) return base;
     return base ? `${base}\n\n${sig}` : `\n\n${sig}`;
-  });
+  })();
+  const [text, setText] = useState(initialText);
+  const [html, setHtml] = useState("");
   const [files, setFiles] = useState<api.OutAttachment[]>([]);
   const [destruct, setDestruct] = useState<(typeof DESTRUCT_OPTIONS)[number]["key"]>("off");
   const [busy, setBusy] = useState(false);
@@ -1358,6 +1438,7 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
       const opt = DESTRUCT_OPTIONS.find((d) => d.key === destruct);
       await api.sendEmail({
         inboxId: inbox.id, to: recipients, subject: subject.trim(), text,
+        html: html && html.replace(/<br\s*\/?>(\s|&nbsp;)*$/i, "").trim() ? html : undefined,
         attachments: files.length ? files : undefined,
         selfDestruct: destruct === "off" ? undefined
           : destruct === "once" ? { viewOnce: true }
@@ -1403,13 +1484,7 @@ function ComposeModal({ inbox, prefill, onClose }: { inbox: api.Inbox; prefill?:
             onChange={(e) => setSubject(e.target.value)}
             className="block w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
           />
-          <textarea
-            placeholder="Write your message..."
-            rows={8}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="block w-full resize-y rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white placeholder:text-white/30 transition focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
-          />
+          <RichEditor initialText={initialText} onChange={(h, t) => { setHtml(h); setText(t); }} />
         </div>
 
         {/* Attachments */}
@@ -2058,10 +2133,14 @@ function ReadingPane({
             </div>
           )}
 
-          {/* Body */}
-          <div className="mt-6 whitespace-pre-wrap text-[15px] leading-relaxed text-white/90">
-            {body ?? <span className="text-white/40">(empty message)</span>}
-          </div>
+          {/* Body — render real HTML on a white card, else plain text */}
+          {msg.htmlBody && msg.htmlBody.trim() ? (
+            <HtmlMail html={msg.htmlBody} />
+          ) : (
+            <div className="mt-6 whitespace-pre-wrap text-[15px] leading-relaxed text-white/90">
+              {msg.textBody ? msg.textBody : <span className="text-white/40">(empty message)</span>}
+            </div>
+          )}
 
           {/* Attachments */}
           {(msg.attachments?.length ?? 0) > 0 && (

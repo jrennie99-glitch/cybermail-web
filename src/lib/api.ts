@@ -192,6 +192,7 @@ export const getInboxHealth = () =>
 export interface OutAttachment { filename: string; mime: string; dataBase64: string }
 export const sendEmail = (opts: {
   inboxId: number; to: string[]; subject: string; text: string;
+  html?: string;
   attachments?: OutAttachment[];
   selfDestruct?: { hours?: number; viewOnce?: boolean };
 }) => request<{ ok: true; messageId: number }>("/api/send", { method: "POST", body: opts });
