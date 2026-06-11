@@ -18,7 +18,7 @@ import {
   Calendar, LogOut, Paperclip, Mail, MailOpen, Undo2, X, Sparkles,
   Volume2, VolumeX, Drama, Plus, Download,
   Settings, ChevronDown, Check, Copy, AtSign,
-  Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon
+  Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Camera
 } from "lucide-react";
 
 type View = "loading" | "auth" | "verify" | "app";
@@ -1102,10 +1102,19 @@ function SettingsView({
     setSigSaved(true); setTimeout(() => setSigSaved(false), 1800);
   }
 
+  const activeAddr = (inboxes ?? []).find((i) => i.id === activeId)?.address || "";
+
   return (
     <div className="mx-auto max-w-2xl px-5 py-8 sm:px-8">
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-      <p className="mt-1 text-sm text-white/50">Manage your addresses, signature, and account.</p>
+      <p className="mt-1 text-sm text-white/50">Manage your photo, addresses, signature, and account.</p>
+
+      <section className="mt-8">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-white/90"><Camera size={16} className="text-cyan-300" /> Profile picture</h2>
+        <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          {activeAddr && <ProfilePicture address={activeAddr} />}
+        </div>
+      </section>
 
       <section className="mt-8">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-white/90"><AtSign size={16} className="text-cyan-300" /> Your addresses</h2>
@@ -2093,7 +2102,25 @@ function MailView({
 }
 
 const AVATAR_HUES = [188, 262, 330, 32, 152, 210, 0, 280, 100];
+// Profile photos are stored per-address in localStorage; any Avatar rendered for
+// that address (top bar, rows, settings) picks it up. `cybrmail-avatar` event
+// notifies all mounted avatars when a photo changes.
+function avatarKey(seed: string) { return "cybrmail_avatar:" + (seed || "").toLowerCase().trim(); }
+function getStoredAvatar(seed: string): string | null {
+  if (typeof window === "undefined") return null;
+  try { return localStorage.getItem(avatarKey(seed)); } catch { return null; }
+}
 function Avatar({ name, seed }: { name: string; seed: string }) {
+  const [img, setImg] = useState<string | null>(null);
+  useEffect(() => {
+    const read = () => setImg(getStoredAvatar(seed));
+    read();
+    window.addEventListener("cybrmail-avatar", read);
+    return () => window.removeEventListener("cybrmail-avatar", read);
+  }, [seed]);
+  if (img) {
+    return <img src={img} alt={name} className="hidden h-9 w-9 shrink-0 rounded-full object-cover sm:block" />;
+  }
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   const hue = AVATAR_HUES[h % AVATAR_HUES.length];
@@ -2103,6 +2130,78 @@ function Avatar({ name, seed }: { name: string; seed: string }) {
       style={{ background: `linear-gradient(135deg, hsl(${hue} 70% 45%), hsl(${(hue + 40) % 360} 70% 35%))` }}
     >
       {(name[0] || "?").toUpperCase()}
+    </div>
+  );
+}
+
+// Crop+resize an uploaded image to a square data URL (keeps localStorage small)
+function resizeImage(file: File, size: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const im = new window.Image();
+      im.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("no canvas")); return; }
+        const scale = Math.max(size / im.width, size / im.height);
+        const w = im.width * scale, hh = im.height * scale;
+        ctx.drawImage(im, (size - w) / 2, (size - hh) / 2, w, hh);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      im.onerror = () => reject(new Error("bad image"));
+      im.src = reader.result as string;
+    };
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function ProfilePicture({ address }: { address: string }) {
+  const [img, setImg] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => { setImg(getStoredAvatar(address)); }, [address]);
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setErr("");
+    if (!file.type.startsWith("image/")) { setErr("Please choose an image file."); return; }
+    try {
+      const dataUrl = await resizeImage(file, 256);
+      localStorage.setItem(avatarKey(address), dataUrl);
+      setImg(dataUrl);
+      window.dispatchEvent(new Event("cybrmail-avatar"));
+    } catch { setErr("Couldn't process that image."); }
+  }
+  function remove() {
+    localStorage.removeItem(avatarKey(address));
+    setImg(null);
+    window.dispatchEvent(new Event("cybrmail-avatar"));
+  }
+  return (
+    <div className="flex items-center gap-4">
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/[0.04]">
+        {img ? (
+          <img src={img} alt="Your photo" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-white/40">
+            {(address[0] || "?").toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div>
+        <div className="flex items-center gap-2">
+          <label className="cursor-pointer rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-2 text-xs font-semibold text-[#0B1020] transition hover:shadow-[0_8px_24px_-8px_rgba(0,229,255,0.6)]">
+            {img ? "Change photo" : "Upload photo"}
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
+          </label>
+          {img && (
+            <button onClick={remove} className="rounded-xl border border-white/15 px-3 py-2 text-xs text-white/60 transition hover:border-red-400/50 hover:text-red-300">Remove</button>
+          )}
+        </div>
+        <p className="mt-1.5 text-xs text-white/40">Shown as your avatar across Cybrmail. Square, ~256px.</p>
+        {err && <p className="mt-1 text-xs text-red-300">{err}</p>}
+      </div>
     </div>
   );
 }
