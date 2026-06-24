@@ -18,7 +18,8 @@ import {
   Calendar, LogOut, Paperclip, Mail, MailOpen, Undo2, X, Sparkles,
   Volume2, VolumeX, Drama, Plus, Download,
   Settings, ChevronDown, Check, Copy, AtSign,
-  Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Camera
+  Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Camera,
+  Landmark, ShieldCheck
 } from "lucide-react";
 
 type View = "loading" | "auth" | "verify" | "app";
@@ -711,7 +712,7 @@ function VerifyEmail({
 type Tab = "brain" | "inbox" | "calendar";
 type ComposePrefill = { to?: string; subject?: string; text?: string };
 
-type ShellView = api.Folder | "brain" | "calendar" | "burners" | "agents" | "assistant" | "settings";
+type ShellView = api.Folder | "brain" | "calendar" | "burners" | "agents" | "assistant" | "settings" | "post";
 
 function Shell({ onLogout }: { onLogout: () => void }) {
   const [view, setView] = useState<ShellView>("inbox");
@@ -844,6 +845,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           <RailBtn icon={<Sparkles size={17} />} label="Assistant" active={view === "assistant"} onClick={() => setView("assistant")} />
           <RailBtn icon={<Brain size={17} />} label="Brain" active={view === "brain"} onClick={() => setView("brain")} />
           <RailBtn icon={<Calendar size={17} />} label="Calendar" active={view === "calendar"} onClick={() => setView("calendar")} />
+          <RailBtn icon={<Landmark size={17} />} label="Digital Post" active={view === "post"} onClick={() => setView("post")} />
           <div className="my-3 border-t border-white/[0.07]" />
           <RailBtn icon={<Drama size={17} />} label="Burners" active={view === "burners"} onClick={() => setView("burners")} />
           <RailBtn icon={<Bot size={17} />} label="Agents" active={view === "agents"} onClick={() => setView("agents")} />
@@ -891,6 +893,8 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                 <BurnersView />
               ) : view === "agents" ? (
                 <AgentsView />
+              ) : view === "post" ? (
+                <DigitalPostView />
               ) : view === "settings" ? (
                 <SettingsView
                   inboxes={inboxes}
@@ -2651,6 +2655,79 @@ interface SpeechRecognitionLike {
 }
 
 // ─── Burners: disposable addresses ────────────────────────────────────
+function DigitalPostView() {
+  const [mail, setMail] = useState<api.PostMail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.listPostMail()
+      .then((r) => setMail(r.mail))
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const money = (c: number | null) => (c == null ? null : `$${(c / 100).toFixed(2)}`);
+  const docColor: Record<string, string> = {
+    bill: "text-amber-300 bg-amber-500/10", statement: "text-cyan-300 bg-cyan-500/10",
+    notice: "text-violet-300 bg-violet-500/10", legal: "text-rose-300 bg-rose-500/10",
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mb-1 flex items-center gap-2">
+        <Landmark size={22} className="text-cyan-300" />
+        <h1 className="text-2xl font-bold text-white">Digital Post</h1>
+      </div>
+      <p className="mb-6 text-sm text-white/50">
+        Official mail — bills, statements, and notices companies send you digitally instead of on paper.
+        Verified senders are cryptographically signed and screened by CybrMail&apos;s security engine.
+      </p>
+
+      {error && <div className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
+
+      {loading ? (
+        <div className="py-16 text-center text-white/40">Loading your official mail…</div>
+      ) : mail.length === 0 ? (
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] py-16 text-center">
+          <Landmark size={40} className="mx-auto mb-3 text-white/20" />
+          <p className="font-semibold text-white/80">No official mail yet</p>
+          <p className="mt-1 text-sm text-white/40">When a company sends you a bill or notice digitally, it lands here.</p>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {mail.map((m) => (
+            <li key={m.id} className={`rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 transition hover:bg-white/[0.04] ${m.read ? "" : "border-l-2 border-l-cyan-400"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-semibold text-white">{m.from}</span>
+                    {m.verified ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                        <ShieldCheck size={11} /> Verified
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/50">Unverified</span>
+                    )}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${docColor[m.docType] || "text-white/60 bg-white/10"}`}>{m.docType}</span>
+                  </div>
+                  <p className="mt-1 truncate text-sm text-white/90">{m.subject || "(no subject)"}</p>
+                  {m.summary && <p className="mt-0.5 truncate text-xs text-white/40">{m.summary}</p>}
+                </div>
+                <div className="shrink-0 text-right">
+                  {money(m.amountCents) && <div className="text-lg font-bold text-white">{money(m.amountCents)}</div>}
+                  {m.dueAt && <div className="text-[11px] text-amber-300/80">Due {new Date(m.dueAt).toLocaleDateString()}</div>}
+                  <div className="mt-1 text-[11px] text-white/30">{new Date(m.receivedAt).toLocaleDateString()}</div>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function BurnersView() {
   const [burners, setBurners] = useState<api.Burner[]>([]);
   const [label, setLabel] = useState("");

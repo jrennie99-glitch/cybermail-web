@@ -271,6 +271,22 @@ export const listAgents = () => request<{ agents: Agent[] }>("/api/agents");
 export const deleteAgent = (id: number) =>
   request<{ ok: true }>(`/api/agents/${id}`, { method: "DELETE" });
 
+// ─── Digital Post (official mail companies send instead of paper) ───
+export interface PostMail {
+  id: number;
+  from: string;
+  businessId: number | null;
+  docType: string;            // bill | statement | notice | legal | document
+  verified: boolean;          // DNS-verified sender → trusted badge
+  subject: string | null;
+  summary: string | null;
+  amountCents: number | null;
+  dueAt: string | null;
+  read: boolean;
+  receivedAt: string;
+}
+export const listPostMail = () => request<{ mail: PostMail[] }>("/api/post/inbox");
+
 // ─── Web3: Sign in with Ethereum (SIWE) ─────────────────────────────────
 export const web3Challenge = (wallet: string) =>
   request<{ nonce: string; message: string; expiresAt: string }>("/api/web3/challenge", {
